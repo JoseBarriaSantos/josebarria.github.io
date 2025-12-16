@@ -1,0 +1,296 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>José Bárria — Futuristic Personal Site</title>
+
+    <!-- Optional: futuristic fonts (remove if you want fully offline/no external calls) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700&family=Inter:wght@400;600&display=swap" rel="stylesheet">
+
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+
+  <body>
+    <!-- Ambient neon background accents -->
+    <div class="ambient" aria-hidden="true">
+      <div class="glow glow--a"></div>
+      <div class="glow glow--b"></div>
+      <div class="grid"></div>
+    </div>
+
+    <header class="header">
+      <div class="header__inner">
+        <a class="brand" href="#home" aria-label="Go to Home">
+          <span class="brand__mark">◼</span>
+          <span class="brand__text">José Bárria</span>
+        </a>
+
+        <nav class="nav" aria-label="Primary">
+          <a class="nav__link" href="#home">Home</a>
+          <a class="nav__link" href="#about">About me</a>
+          <a class="nav__link" href="#career">My Career</a>
+          <a class="nav__link" href="#contact">Contact</a>
+        </nav>
+      </div>
+    </header>
+
+    <main class="main">
+      <!-- HOME -->
+      <section id="home" class="section section--hero reveal">
+        <div class="container">
+          <p class="eyebrow">SOFTWARE ENGINEERING / CHESS</p>
+          <h1 class="title">
+            Hi, my name is <span class="neon">José Bárria</span>.
+            <br />
+            I am a Software Engineer trying to achieve the <span class="neon neon--alt">Grandmaster Title</span> in <span class="neon">chess</span>.
+          </h1>
+
+          <p class="lead">
+            Welcome to my website.
+          </p>
+
+          <div class="cta">
+            <a class="btn btn--primary" href="#about">Profile</a>
+            <a class="btn btn--ghost" href= "#contact">Contact</a>
+          </div>
+
+          <div class="hint">
+            <span class="hint__dot"></span>
+            <span class="hint__text">Scroll for more</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- ABOUT -->
+      <section id="about" class="section reveal">
+        <div class="container">
+          <h2 class="section__title">About me</h2>
+          <p class="section__text">
+            I have been playing chess since I was 4 years old and started competing in chess tournaments at 10. 
+            Fast forward 13 years, I am finishing my Msc in Software Engineering and Computer Science
+            at Instituto Superior Técnico - Lisbon, while looking to improve as much as possible on the 64 
+            squares and go from International Master to the highest chess honor - Grandmaster.
+          </p>
+
+          <div class="cards">
+            <article class="card">
+              <h3 class="card__title">Goal</h3>
+              <p class="card__text">
+                Grandmaster: I need to get
+                <span class="tooltip">
+                  3 GM Norms
+                  <span class="tooltip__content">
+                    A GM norm is achieved by scoring a required performance rating
+                    in an international tournament against very strong opponents.
+                  </span>
+                </span>
+                and surpass <span class="tooltip">
+                  2500 FIDE Elo
+                  <span class="tooltip__content">
+                    FIDE Elo is a numerical rating system that rules the chess world.
+                    FIDE is the Chess International Federation.
+                  </span>
+                </span>
+                to achieve the title.
+              </p>
+            </article>
+            <article class="card">
+              <h3 class="card__title">Philosophy</h3>
+              <p class="card__text">No memorization: I hate memorization in chess. Let's leave that to the computers
+                and try to understand the game better.
+              </p>
+            </article>
+            <article class="card">
+              <h3 class="card__title">Currently</h3>
+              <p class="card__text">I am investing a lot of time and money into chess and we'll see how far I can get!</p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <!-- CLASSES
+      <section id="classes" class="section reveal">
+        <div class="container">
+          <h2 class="section__title">Classes</h2>
+          <p class="section__text">
+            Boilerplate: highlight relevant courses, what you learned, and what projects came out of them.
+          </p>
+
+          <div class="timeline">
+            <div class="timeline__item">
+              <div class="timeline__tag">Course</div>
+              <div class="timeline__content">
+                <h3 class="timeline__title">Course Name — Topic</h3>
+                <p class="timeline__text">Boilerplate: key topics, tools, and outcomes.</p>
+              </div>
+            </div>
+
+            <div class="timeline__item">
+              <div class="timeline__tag">Course</div>
+              <div class="timeline__content">
+                <h3 class="timeline__title">Course Name — Topic</h3>
+                <p class="timeline__text">Boilerplate: projects, skills, and takeaways.</p>
+              </div>
+            </div>
+
+            <div class="timeline__item">
+              <div class="timeline__tag">Course</div>
+              <div class="timeline__content">
+                <h3 class="timeline__title">Course Name — Topic</h3>
+                <p class="timeline__text">Boilerplate: what you’re proud of and what you improved.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+      -->
+
+      <!-- CAREER -->
+      <section id="career" class="section reveal">
+        <div class="container">
+          <h2 class="section__title">My Career</h2>
+          <p class="section__text">
+            A couple moments that were remarkable/life-changing to me.
+          </p>
+          <div class="career-timeline-wrapper">
+            <div class="career-timeline">
+              <article class="milestone">
+                <div class="milestone__left">
+                  <time class="milestone__date">2025</time>
+                </div>
+
+                <div class="milestone__card">
+                  <ul>
+                    <li>
+                      <h3 class="milestone__title">National Blitz Championship 🥇</h3>
+                      <p class="milestone__meta">Regained the title! • Lisboa, Portugal</p>
+                    </li>
+                    <li>
+                      <h3 class="milestone__title">Reached IM title 🥳</h3>
+                      <p class="milestone__meta">Made my last norm in the Pontevedra Open • Pontevedra, Spain</p>
+                    </li>
+                  </ul>
+                </div>
+              </article>
+
+              <article class="milestone">
+                <div class="milestone__left">
+                  <time class="milestone__date">2023</time>
+                </div>
+
+                <div class="milestone__card">
+                  <ul>
+                    <li>
+                      <h3 class="milestone__title">National Blitz Championship 🥇</h3>
+                      <p class="milestone__meta">First national win. • Setúbal, Portugal</p>
+                    </li>
+                    <li>
+                      <h3 class="milestone__title">Finished Bachelor's Degree 👨‍🎓</h3>
+                      <p class="milestone__meta">Grade Average of 14.0/20 • Insituto Superior Técnico - Lisboa</p>
+                    </li>
+                    <li>
+                      <h3 class="milestone__title">National Classical Championship 🥇</h3>
+                      <p class="milestone__meta">My greatest achievement to date! 8/9pts • Coimbra, Portugal</p>
+                    </li>     
+                    <li>
+                      <h3 class="milestone__title">Started Master's Degree 👾</h3>
+                      <p class="milestone__meta">Minor in Artififcial Intelligence • Insituto Superior Técnico - Lisboa</p>
+                    </li>     
+                  </ul>
+                </div>
+              </article>
+
+              <article class="milestone">
+                <div class="milestone__left">
+                  <time class="milestone__date">2021</time>
+                </div>
+
+                <div class="milestone__card">
+                  <ul>
+                    <li>
+                      <h3 class="milestone__title">Graduated High School 👨‍🎓</h3>
+                      <p class="milestone__meta">Grade Average of 17.7/20 • Cascais High School - Cascais</p>
+                    </li>  
+                    <li>
+                      <h3 class="milestone__title">Started Bachelor's Degree 👨‍🎓</h3>
+                      <p class="milestone__meta">Computer Science and Software Engineering • Instituto Superior Técnico - Lisboa</p>
+                    </li>   
+                  </ul>
+                </div>
+              </article>
+
+              <article class="milestone">
+                <div class="milestone__left">
+                  <time class="milestone__date">2020</time>
+                </div>
+
+                <div class="milestone__card">
+                  <ul>
+                    <li>
+                      <h3 class="milestone__title">National Youth Championship 🥇</h3>
+                      <p class="milestone__meta">The first time I won it. A huge turning point in my chess career • Pombal, Portugal</p>
+                    </li>
+                    <li>
+                      <h3 class="milestone__title">Reached FM title ⏫</h3>
+                      <p class="milestone__meta">Finally! • Figueira da Foz, Portugal</p>
+                    </li>       
+                  </ul>
+                </div>
+              </article>
+
+            </div>
+          </div>
+      </div>
+      </section>
+
+      <!-- CONTACT -->
+      <section id="contact" class="section reveal">
+        <div class="container">
+          <h2 class="section__title">Contact</h2>
+          <p class="section__text">
+            Feel free to contact me about anything!
+          </p>
+
+          <div class="contact">
+            <div class="contact__panel">
+              <p class="contact__label">Email</p>
+              <a class="contact__value" href="mailto:ze.guilherme.santos@gmail.com">ze.guilherme.santos@gmail.com</a>
+
+              <p class="contact__label">Links</p>
+              <div class="contact__links">
+                <a href="https://github.com/JoseBarriaSantos" class="chip">GitHub</a>
+                <a href="https://linkedin.com/in/jose-barria-santos" class="chip">LinkedIn</a>
+                <a href="https://ratings.fide.com/profile/1939300" class="chip">FIDE Profile</a>
+              </div>
+            </div>
+
+            <form class="form" onsubmit="return false;">
+              <label class="form__label">
+                Name
+                <input class="form__input" type="text" placeholder="Your name" />
+              </label>
+
+              <label class="form__label">
+                Message
+                <textarea class="form__textarea" rows="4" placeholder="Write something…"></textarea>
+              </label>
+
+              <button class="btn btn--primary" type="submit">Send (Not yet available)</button>
+            </form>
+          </div>
+
+          <footer class="footer">
+            <span>© <span id="year"></span> José Bárria</span>
+            <span class="footer__sep">•</span>
+            <a href="#home" class="footer__link">Back to top</a>
+          </footer>
+        </div>
+      </section>
+    </main>
+
+    <script src="script.js"></script>
+  </body>
+</html>
