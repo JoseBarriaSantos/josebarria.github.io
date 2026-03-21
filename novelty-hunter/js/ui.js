@@ -1,8 +1,3 @@
-/* ================================================================
-   ui.js — App orchestration, board viewer, sidebar, navigation
-   Port of gui.py NoveltyViewer + app state management.
-   ================================================================ */
-
 (function () {
   "use strict";
 
@@ -20,11 +15,6 @@
   // ── DOM refs ─────────────────────────────────────────────────
   const $ = (sel) => document.querySelector(sel);
 
-  function formatCp(cp) {
-    if (cp == null) return "N/A";
-    const val = (cp / 100).toFixed(2);
-    return cp >= 0 ? `+${val}` : val;
-  }
   const uploadSec = $("#upload-section");
   const analyzeSec = $("#analyzing-section");
   const viewerSec = $("#viewer-section");
@@ -65,6 +55,13 @@
     reader.readAsText(file);
   }
 
+  // Grey out depth input when engine is disabled
+  const stockfishToggle = $("#stockfish-toggle");
+  const sfDepthInput = $("#sf-depth");
+  stockfishToggle.addEventListener("change", () => {
+    sfDepthInput.disabled = !stockfishToggle.checked;
+  });
+
   dropzone.addEventListener("click", () => fileInput.click());
   fileInput.addEventListener("change", () => handleFile(fileInput.files[0]));
 
@@ -92,7 +89,8 @@
     const minElo = parseInt($("#min-elo").value, 10) || 2400;
     const target = parseInt($("#target-count").value, 10) || 3;
     const useSf = $("#stockfish-toggle").checked;
-    console.log("[App] Analyze clicked. Settings:", { minElo, target, useSf });
+    const sfDepth = parseInt($("#sf-depth").value, 10) || 10;
+    console.log("[App] Analyze clicked. Settings:", { minElo, target, useSf, sfDepth });
 
     // Save token to localStorage so user doesn't need to re-enter it
     try { localStorage.setItem("nh_lichess_token", token); } catch { }
@@ -137,7 +135,7 @@
     };
 
     try {
-      results = await analyzeGames(pgnText, { minElo, target, token }, onProgress, abortCtrl, sfWorker);
+      results = await analyzeGames(pgnText, { minElo, target, token, sfDepth }, onProgress, abortCtrl, sfWorker);
     } catch (err) {
       progressText.textContent = "Error: " + err.message;
       return;
@@ -241,20 +239,8 @@
     $("#info-games-before").textContent = r.games_before ?? "N/A";
     $("#info-games-after").textContent = r.games_after ?? "Not in DB";
     $("#info-rarity-score").textContent = r.rarity_score.toFixed(2);
-    $("#info-stockfish-score").textContent =
-      r.stockfish_score != null ? (r.stockfish_score >= 0 ? "+" : "") + r.stockfish_score.toFixed(2) : "N/A";
-    $("#info-result-score").textContent =
-      (r.result_score >= 0 ? "+" : "") + r.result_score.toFixed(2);
-    const afterPly = r.novelty_ply + 1;
-    const laterPly = Math.min(afterPly + 10, r.moves.length);
-    $("#info-eval-after").textContent = formatCp(r.eval_after);
-    $("#info-eval-later").textContent = formatCp(r.eval_later);
-    $("#label-eval-after").innerHTML =
-      `Eval after <span class="move-notation">${plyToNotation(afterPly, r.moves)}</span>`;
-    $("#label-eval-later").innerHTML =
-      `Eval after <span class="move-notation">${plyToNotation(laterPly, r.moves)}</span>`;
-    $("#info-efficiency-score").textContent =
-      (r.efficiency_score >= 0 ? "+" : "") + r.efficiency_score.toFixed(2);
+    $("#info-efficiency-score").textContent = r.efficiency_score.toFixed(2);
+    $("#info-early-nov-score").textContent = r.early_nov_score.toFixed(2);
     $("#info-interest-score").textContent = r.interest_score.toFixed(2);
 
     updateBoard();
@@ -348,28 +334,6 @@
     if (e.key === "ArrowLeft") { e.preventDefault(); prevMove(); }
     if (e.key === "ArrowDown") { e.preventDefault(); nextGame(); }
     if (e.key === "ArrowUp") { e.preventDefault(); prevGame(); }
-  });
-
-  // ── Viewer actions ───────────────────────────────────────────
-  $("#back-btn").addEventListener("click", () => {
-    showState(uploadSec);
-    results = [];
-  });
-
-  $("#export-btn").addEventListener("click", () => {
-    // Export results as JSON (exclude the moves array to keep it clean)
-    const exportData = results.map(r => {
-      const copy = { ...r };
-      delete copy.moves; // moves is an internal convenience, game_pgn has the full game
-      return copy;
-    });
-    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "novelty_hunter_results.json";
-    a.click();
-    URL.revokeObjectURL(url);
   });
 
   // ── Beforeunload warning during analysis ─────────────────────

@@ -29,15 +29,15 @@
 
   <header class="header">
     <div class="header__inner">
-      <a class="brand" href="index.html" aria-label="Go to Home">
+      <a class="brand" href="../index.html" aria-label="Go to Home">
         <span class="brand__mark">&#9724;</span>
         <span class="brand__text">José Bárria</span>
       </a>
       <nav class="nav" aria-label="Primary">
-        <a class="nav__link" href="index.html#about">About me</a>
-        <a class="nav__link" href="index.html#career">My Career</a>
-        <a class="nav__link" href="index.html#contact">Contact</a>
-        <a class="nav__link nav__link--accent" href="novelty-hunter.html">Novelty Hunter <span class="badge-new">New!</span></a>
+        <a class="nav__link" href="../index.html#about">About me</a>
+        <a class="nav__link" href="../index.html#career">My Career</a>
+        <a class="nav__link" href="../index.html#contact">Contact</a>
+        <a class="nav__link nav__link--accent" href="./">Novelty Hunter <span class="badge-new">New!</span></a>
       </nav>
     </div>
   </header>
@@ -48,7 +48,7 @@
     <section id="upload-section" class="app-state active">
       <div class="upload-container">
         <h1 class="nh-logo">Novelty Hunter</h1>
-        <p class="nh-tagline">Find rare and interesting opening moves in master games</p>
+        <p class="nh-tagline">Find rare and interesting opening moves for your repertoire</p>
 
         <!-- Dropzone -->
         <div id="dropzone" class="dropzone">
@@ -88,13 +88,24 @@
               <div class="toggle-row">
                 <input type="checkbox" id="stockfish-toggle" checked />
                 <label for="stockfish-toggle">Stockfish evaluation</label>
+                <input type="number" id="sf-depth" value="10" min="1" max="30" step="1" class="depth-input" title="Engine depth" />
               </div>
-              <p class="toggle-hint">Uses browser-based engine (~12 MB download). Slower but more accurate scoring.</p>
+              <p class="toggle-hint">Using the engine provides slower but more accurate scoring.</p>
             </div>
           </div>
         </div>
 
         <button id="analyze-btn" class="btn btn--primary nh-btn" disabled>Analyze</button>
+
+        <p class="nh-credits">This wouldn't be possible without
+          <a class="link-accent" href="https://github.com/lichess-org/chessground" target="_blank">Chessground</a>,
+          <a class="link-accent" href="https://github.com/jhlywa/chess.js" target="_blank">chess.js</a>,
+          <a class="link-accent" href="https://github.com/official-stockfish/Stockfish" target="_blank">Stockfish 18</a>, and the
+          <a class="link-accent" href="https://lichess.org/api#tag/Opening-Explorer" target="_blank">Lichess Masters database</a>.
+          Thank you so much! ♥ <br>
+          You can check out reasonings for the formulas and docs <a class="link-accent" href="https://github.com/JoseBarriaSantos/my_website" target="_blank">here</a>.
+        </br>
+        </p>
       </div>
     </section>
 
@@ -156,7 +167,9 @@
             <span id="info-rare-move" class="info-value accent-value"></span>
           </div>
           <div class="info-field">
-            <span class="info-label">Frequency</span>
+            <span class="info-label">Frequency
+              <span class="tooltip-anchor" data-tooltip="followUpGames/mostPopularMoveGames&#10;&#10;Not followUpGames/totalGames —&#10;check out docs for more info.">?</span>
+            </span>
             <span id="info-frequency" class="info-value"></span>
           </div>
           <div class="info-row">
@@ -172,44 +185,37 @@
 
           <hr class="sidebar-divider" />
 
-          <div class="info-field">
-            <span class="info-label">Initial Rarity Score</span>
-            <span id="info-rarity-score" class="info-value"></span>
-          </div>
           <div class="info-row">
             <div class="info-field">
-              <span id="label-eval-after" class="info-label">Eval after move</span>
-              <span id="info-eval-after" class="info-value"></span>
+              <span class="info-label">
+                Rarity Score
+                <span class="tooltip-anchor" data-tooltip="50% Follow-up score + 50% Frequency score&#10;&#10;Follow-up score: min(1, 10/followUpGames)&#10;fewer follow-up games → higher&#10;Frequency Score: (1 − freq / threshold)&#10;closer to 0% → higher">?</span>
+              </span>
+              <span id="info-rarity-score" class="info-value"></span>
             </div>
             <div class="info-field">
-              <span id="label-eval-later" class="info-label">Eval 5 moves later</span>
-              <span id="info-eval-later" class="info-value"></span>
-            </div>
-          </div>
-          <div class="info-row">
-            <div class="info-field">
-              <span class="info-label">Stockfish Score</span>
-              <span id="info-stockfish-score" class="info-value"></span>
-            </div>
-            <div class="info-field">
-              <span class="info-label">Result Score</span>
-              <span id="info-result-score" class="info-value"></span>
+              <span class="info-label">
+                Efficiency Score
+                <span class="tooltip-anchor" data-tooltip="80% Δeval + 20% resultScore&#10;&#10;Δeval: Stockfish eval 5 moves later − eval after move&#10;resultScore: game outcome bonus/penalty">?</span>
+              </span>
+              <span id="info-efficiency-score" class="info-value"></span>
             </div>
           </div>
           <div class="info-field">
-            <span class="info-label">Total Efficiency Score</span>
-            <span id="info-efficiency-score" class="info-value"></span>
+            <span class="info-label">
+              Early Novelty Score
+              <span class="tooltip-anchor" data-tooltip="1.0 if moveNumber ≤ 5, otherwise 5/moveNumber &#10;&#10;earlier novelties → more interesting">?</span>
+            </span>
+            <span id="info-early-nov-score" class="info-value"></span>
           </div>
           <div class="info-field">
-            <span class="info-label">Final Interest Score</span>
+            <span class="info-label">
+              Final Interest Score
+              <span class="tooltip-anchor" data-tooltip="40% earlyNovScore + 40% rarity + 20% efficiency&#10;clamped to [0, 1]&#10;&#10;earlyNovScore: bonus for early opening novelties">?</span>
+            </span>
             <span id="info-interest-score" class="info-value accent-value"></span>
           </div>
         </div>
-      </div>
-
-      <!-- Viewer actions -->
-      <div class="viewer-actions">
-        <button id="back-btn" class="btn btn--ghost nh-btn-sm">Back to Upload</button>
       </div>
     </section>
 

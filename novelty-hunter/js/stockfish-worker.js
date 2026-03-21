@@ -1,8 +1,3 @@
-/* ================================================================
-   stockfish-worker.js — Web Worker wrapper for Stockfish 18 WASM
-   Lazily loads sf-worker.js on first use. Communicates via UCI.
-   ================================================================ */
-
 /**
  * Create a Stockfish worker wrapper.
  * Returns an object with { evaluate(fen, depth), terminate(), onResult }.

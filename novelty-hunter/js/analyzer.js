@@ -1,8 +1,3 @@
-/* ================================================================
-   analyzer.js — Port of novelty_hunter.py analysis loop
-   Runs entirely in-browser: PGN parsing via chess.js, API via fetch.
-   ================================================================ */
-
 /**
  * Split a multi-game PGN string into individual game strings.
  */
@@ -140,7 +135,7 @@ async function fetchLichessMoves(fen, token) {
 
   const headers = { "Authorization": "Bearer " + token };
 
-  let delay = 1000;
+  let delay = 10;
   for (let attempt = 0; attempt < 4; attempt++) {
     try {
       const resp = await fetch(url, { headers });
@@ -202,10 +197,9 @@ async function stockfishEval(fen, depth, sfWorker) {
 }
 
 /**
- * Compute Stockfish score: (eval_after - eval_later) / 2
- * Mirrors helpers.py get_stockfish_score.
+ * Compute Stockfish score: (eval_after - eval_later)
  */
-async function getStockfishScore(moves, noveltyPly, whiteToMove, sfWorker) {
+async function getStockfishScore(moves, noveltyPly, whiteToMove, sfWorker, depth = 10) {
   if (!sfWorker) {
     console.log("[Analysis] Stockfish not enabled, bonus = 0");
     return { bonus: 0.0, cpAfter: null, cpLater: null };
@@ -238,8 +232,8 @@ async function getStockfishScore(moves, noveltyPly, whiteToMove, sfWorker) {
     console.log(`[DEBUG] Side to move after novelty: ${chessAfter.turn() === "w" ? "White" : "Black"}`);
 
     console.log(`[Analysis] Computing Stockfish score for novelty at ply ${noveltyPly}`);
-    const cpAfter = await stockfishEval(chessAfter.fen(), 10, sfWorker);
-    const cpLater = await stockfishEval(chessLater.fen(), 10, sfWorker);
+    const cpAfter = await stockfishEval(chessAfter.fen(), depth, sfWorker);
+    const cpLater = await stockfishEval(chessLater.fen(), depth, sfWorker);
 
     if (cpAfter === null || cpLater === null) {
       console.warn("[Analysis] One of the evaluations failed, bonus = 0. After:", cpAfter, "Later:", cpLater);
@@ -247,7 +241,7 @@ async function getStockfishScore(moves, noveltyPly, whiteToMove, sfWorker) {
     }
 
     const diff = (cpLater - cpAfter) / 100.0;
-    const bonus = whiteToMove ? diff / 2 : -diff / 2;
+    const bonus = whiteToMove ? diff : -diff;
     console.log(`[Analysis] Stockfish score calculated: after=${cpAfter}cp, later=${cpLater}cp, bonus=${bonus.toFixed(3)}`);
     return { bonus: Math.round(bonus * 100) / 100, cpAfter, cpLater };
   } catch (err) {
@@ -267,7 +261,7 @@ async function getStockfishScore(moves, noveltyPly, whiteToMove, sfWorker) {
  * @returns {Promise<Array>} sorted results array
  */
 async function analyzeGames(pgnText, options, onProgress, abortCtrl, sfWorker) {
-  const { minElo = 2400, target = 1, token = "" } = options;
+  const { minElo = 2400, target = 1, token = "", sfDepth = 10 } = options;
   const gamePgns = splitPgn(pgnText);
   const results = [];
 
@@ -333,13 +327,13 @@ async function analyzeGames(pgnText, options, onProgress, abortCtrl, sfWorker) {
       const moveSan = history[mi];
       const whiteToMove = chess.turn() === "w";
 
-      if (isRare(moveSan, movesData, fullMoveNumber, 0.05, 10, 500)) {
+      if (isRare(moveSan, movesData, 0.05, 10, 500)) {
         const noveltyPly = mi;
 
         // Stockfish score (if enabled)
-        let sfResult = { bonus: 0.0, cpAfter: null, cpLater: null };
+        let sfResult = { bonus: null, cpAfter: null, cpLater: null };
         if (sfWorker) {
-          sfResult = await getStockfishScore(history, noveltyPly, whiteToMove, sfWorker);
+          sfResult = await getStockfishScore(history, noveltyPly, whiteToMove, sfWorker, sfDepth);
         }
 
         const info = getAllMoveInfo(
@@ -361,10 +355,11 @@ async function analyzeGames(pgnText, options, onProgress, abortCtrl, sfWorker) {
           white_to_move: whiteToMove,
           frequency: info.frequency,
           games_before: info.pmTotalGames,
-          games_after: info.gamesWithMove,
+          games_after: info.followUpGames,
           rarity_score: info.rarityScore,
           result_score: info.resultScore,
           efficiency_score: info.efficiencyScore,
+          early_nov_score: info.earlyNovScore,
           interest_score: info.interestScore,
           stockfish_score: info.stockfishScore,
           eval_after: sfResult.cpAfter,
