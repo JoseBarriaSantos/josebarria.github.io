@@ -188,7 +188,7 @@ a { color: inherit; text-decoration: none; }
 }
 
 .about__image {
-  flex: 0 0 520px; /* Fixed width for the image container */
+  flex: 0 0 420px; /* Fixed width for the image container */
 }
 
 .profile-img {
