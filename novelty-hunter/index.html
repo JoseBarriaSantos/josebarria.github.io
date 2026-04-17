@@ -47,7 +47,6 @@
 
     <!-- ============ STATE 1: Upload ============ -->
     <section id="upload-section" class="app-state active">
-      <div class="upload-layout">
       <div class="upload-container">
         <h1 class="nh-logo">Novelty Hunter</h1>
         <p class="nh-tagline">Find rare and interesting opening moves for your repertoire</p>
@@ -115,16 +114,10 @@
         <ul class="changelog-list">
           <li class="changelog-entry">
             <span class="changelog-date">2026-04-17</span>
-            <span class="changelog-text">Fixed Stockfish scores not being normalized to white's perspective</span>
-          </li>
-          <li class="changelog-entry">
-            <span class="changelog-date">2026-04-17</span>
-            <span class="changelog-text">Efficiency score formula changed: SF score now has full weight, result score is additive bonus, clamped to [-1, 1]</span>
+            <span class="changelog-text">Fixed bug with efficiency score: with the old weights white was getting a max of 0.9 efficiency score. SF score now has full weight so max is 1.</span>
           </li>
         </ul>
       </aside>
-
-      </div>
     </section>
 
     <!-- ============ STATE 2: Analyzing ============ -->

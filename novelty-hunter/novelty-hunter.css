@@ -138,6 +138,63 @@ a { color: inherit; text-decoration: none; }
   text-align: center;
 }
 
+.changelog-panel {
+  position: fixed;
+  top: 80px;
+  right: 24px;
+  width: 240px;
+  border: 1px solid rgba(255,255,255,0.10);
+  border-radius: 14px;
+  background: rgba(255,255,255,0.03);
+  padding: 16px 18px;
+}
+
+.changelog-title {
+  font-size: 13px;
+  letter-spacing: 0.10em;
+  color: rgba(255,255,255,0.60);
+  margin: 0 0 14px;
+  text-transform: uppercase;
+}
+
+.changelog-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.changelog-entry {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+
+.changelog-entry:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.changelog-date {
+  font-size: 11px;
+  color: var(--neon);
+  letter-spacing: 0.05em;
+}
+
+.changelog-text {
+  font-size: 13px;
+  color: rgba(255,255,255,0.70);
+  line-height: 1.4;
+}
+
+@media (max-width: 900px) {
+  .changelog-panel { display: none; }
+}
+
 .nh-logo {
   font-family: Orbitron, Inter, system-ui, sans-serif;
   font-size: 2rem;
