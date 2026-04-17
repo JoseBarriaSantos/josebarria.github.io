@@ -47,6 +47,7 @@
 
     <!-- ============ STATE 1: Upload ============ -->
     <section id="upload-section" class="app-state active">
+      <div class="upload-layout">
       <div class="upload-container">
         <h1 class="nh-logo">Novelty Hunter</h1>
         <p class="nh-tagline">Find rare and interesting opening moves for your repertoire</p>
@@ -107,6 +108,22 @@
           You can check out reasonings for the formulas and docs <a class="link-accent" href="https://github.com/JoseBarriaSantos/my_website" target="_blank">here</a>.
         </br>
         </p>
+      </div>
+
+      <aside class="changelog-panel">
+        <h3 class="changelog-title">Changelog</h3>
+        <ul class="changelog-list">
+          <li class="changelog-entry">
+            <span class="changelog-date">2026-04-17</span>
+            <span class="changelog-text">Fixed Stockfish scores not being normalized to white's perspective</span>
+          </li>
+          <li class="changelog-entry">
+            <span class="changelog-date">2026-04-17</span>
+            <span class="changelog-text">Efficiency score formula changed: SF score now has full weight, result score is additive bonus, clamped to [-1, 1]</span>
+          </li>
+        </ul>
+      </aside>
+
       </div>
     </section>
 

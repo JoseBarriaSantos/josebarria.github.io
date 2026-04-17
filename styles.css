@@ -677,7 +677,6 @@ a { color: inherit; text-decoration: none; }
   font-size: 36px;
   margin-bottom: 10px;
   color: var(--neon);
-  text-shadow: 0 0 14px rgba(0,229,255,0.35);
 }
 .nh-promo__title{
   margin: 0 0 8px;
