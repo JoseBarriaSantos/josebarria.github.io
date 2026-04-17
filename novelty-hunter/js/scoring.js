@@ -37,24 +37,26 @@ function computeResultScore(result, whiteToMove) {
   if (whiteToMove) {
     if (result === "1-0")       score = 0.5;
     else if (result === "0-1")  score = -1;
-    else if (result === "1/2-1/2") score = -0.5;
+    else if (result === "1/2-1/2") score = -0.25;
   } else {
     if (result === "0-1")       score = 1;
     else if (result === "1-0")  score = -0.5;
-    else if (result === "1/2-1/2") score = 0.5;
+    else if (result === "1/2-1/2") score = 0.25;
   }
   return score;
 }
 
 function computeEfficiencyScore(result, whiteToMove, stockfishScore = null) {
   const resultScore = computeResultScore(result, whiteToMove);
+  console.log(`stockfish score: ${stockfishScore}`)
 
   if (stockfishScore === null) {
     return Math.round(resultScore * 1000) / 1000;
   }
 
   const normalizedStockfish = Math.max(-1, Math.min(1, stockfishScore / 2));
-  return Math.round((0.8 * normalizedStockfish + 0.2 * resultScore) * 1000) / 1000;
+  console.log(`normalized stockfish score: ${normalizedStockfish}`)
+  return Math.max(-1, Math.min(1, Math.round((normalizedStockfish + 0.2 * resultScore) * 1000) / 1000));
 }
 
 function computeInterestScore(rarityScore, efficiencyScore, earlyNovScore) {

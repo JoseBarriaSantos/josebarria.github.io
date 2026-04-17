@@ -59,7 +59,7 @@ frequencyScore = 1 − (frequency/threshold)
 Measures whether the rare move was any good in the game.
 
 ```
-efficiencyScore =  80% normalizedStockfish + 20% resultScore
+efficiencyScore = clamp(normalizedStockfish + 20% resultScore, −1, 1)
 
 normalizedStockfish = clamp(stockfishScore / 2, −1, 1)
 ```
@@ -72,7 +72,7 @@ The **result score** is a bonus/penalty based on the game outcome:
 |----------------------|-------|------
 | White                | +1.0  | 1-0
 | White                | -0.5  | 1/2
-| White                | −1.0  | 1-0
+| White                | −1.0  | 0-1
 | Black                | +1.0  | 0-1
 | Black                | +0.5  | 1/2
 | Black                | −1.0  | 1-0

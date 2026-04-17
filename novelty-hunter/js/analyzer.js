@@ -193,9 +193,6 @@ async function stockfishEval(fen, depth, sfWorker) {
   });
 }
 
-/**
- * Compute Stockfish score: (eval_after - eval_later)
- */
 async function getStockfishScore(moves, noveltyPly, whiteToMove, sfWorker, depth = 10) {
   if (!sfWorker) {
     return { bonus: 0.0, cpAfter: null, cpLater: null };
@@ -228,7 +225,14 @@ async function getStockfishScore(moves, noveltyPly, whiteToMove, sfWorker, depth
       return 0.0;
     }
 
-    const diff = (cpLater - cpAfter) / 100.0;
+    // Stockfish scores are from side-to-move's perspective; normalize both to white's perspective
+    const cpAfterWhite = chessAfter.turn() === 'w' ? cpAfter : -cpAfter;
+    const cpLaterWhite = chessLater.turn() === 'w' ? cpLater : -cpLater;
+
+    console.log(`cpAfter (raw): ${cpAfter}, side to move: ${chessAfter.turn()}, cpAfterWhite: ${cpAfterWhite}`)
+    console.log(`cpLater (raw): ${cpLater}, side to move: ${chessLater.turn()}, cpLaterWhite: ${cpLaterWhite}`)
+    console.log(`whiteToMove: ${whiteToMove}`)
+    const diff = (cpLaterWhite - cpAfterWhite) / 100.0;
     const bonus = whiteToMove ? diff : -diff;
     return { bonus: Math.round(bonus * 100) / 100, cpAfter, cpLater };
   } catch (err) {
