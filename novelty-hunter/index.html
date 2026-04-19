@@ -74,7 +74,8 @@
               <label for="lichess-token">Lichess API Token</label>
               <input type="password" id="lichess-token" placeholder="lip_..." autocomplete="off" />
               <p class="toggle-hint">This is used to access the Lichess database. Get one at <a href="https://lichess.org/account/oauth/token"
-                  target="_blank" class="link-accent">lichess.org/account/oauth/token</a> (leave deafult settings).
+                  target="_blank" class="link-accent">lichess.org/account/oauth/token</a> (leave deafult settings). P.S: Your token is sent
+                  directly to lichess. Novelty Hunter doesn't have a server and never sees it.
               </p>
             </div>
             <div class="setting">
@@ -82,16 +83,25 @@
               <input type="number" id="min-elo" value="2400" min="0" max="3000" step="50" />
             </div>
             <div class="setting">
-              <label for="target-count">Novelties</label>
-              <input type="number" id="target-count" value="1" min="1" max="50" />
-            </div>
-            <div class="setting setting-toggle">
               <div class="toggle-row">
-                <input type="checkbox" id="stockfish-toggle" checked />
+                <input type="checkbox" id="stockfish-toggle" />
                 <label for="stockfish-toggle">Stockfish evaluation</label>
-                <input type="number" id="sf-depth" value="10" min="1" max="30" step="1" class="depth-input" title="Engine depth" />
               </div>
-              <p class="toggle-hint">Using the engine provides slower but more accurate scoring.</p>
+              <input type="number" id="sf-depth" value="30" min="1" max="30" step="1" class="depth-input" title="Engine depth" style="width:100%" disabled />
+              <p class="toggle-hint">Using the engine provides slower but more interesting scoring.</p>
+            </div>
+          </div>
+
+          <button type="button" id="more-settings-btn" class="btn btn--ghost more-settings-btn">More settings <span class="more-settings-arrow">▾</span></button>
+
+          <div id="more-settings" class="more-settings-panel" hidden>
+            <div class="settings-grid">
+              <div class="setting setting-full">
+                <label>Exclude tournaments containing word (up to 6 keywords):</label>
+                <div class="exclude-keywords" id="exclude-keywords">
+                  <input type="text" class="exclude-keyword" placeholder="e.g. Titled" />
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -115,6 +125,12 @@
           <li class="changelog-entry">
             <span class="changelog-date">2026-04-17</span>
             <span class="changelog-text">Fixed bug with efficiency score: with the old weights white was getting a max of 0.9 efficiency score. SF score now has full weight so max is 1.</span>
+          </li>
+          <li class="changelog-entry">
+            <span class="changelog-date">2026-04-18</span>
+            <span class="changelog-text">Increased general rarity scores by 100%+ because they were too low. <br> Changed early nov function to (15 - x)/10 so that
+              move 5 gets 1.0, move 10 gets 0.5 and move 15 gets 0. <br> Added option to filter out custom tournaments. <br> Removed novelties textbox.
+            </span>
           </li>
         </ul>
       </aside>

@@ -62,6 +62,36 @@
     sfDepthInput.disabled = !stockfishToggle.checked;
   });
 
+  // Dynamic keyword inputs
+  const keywordsContainer = $("#exclude-keywords");
+  const MAX_KEYWORDS = 6;
+  keywordsContainer.addEventListener("keydown", (e) => {
+    if (e.key !== "Enter") return;
+    e.preventDefault();
+    const inputs = keywordsContainer.querySelectorAll(".exclude-keyword");
+    if (inputs.length >= MAX_KEYWORDS) { e.target.blur(); return; }
+    if (!e.target.value.trim()) return;
+    const input = document.createElement("input");
+    input.type = "text";
+    input.className = "exclude-keyword";
+    keywordsContainer.appendChild(input);
+    input.focus();
+  });
+
+  // More settings toggle
+  $("#more-settings-btn").addEventListener("click", () => {
+    const panel = $("#more-settings");
+    const hidden = panel.hasAttribute("hidden");
+    const btn = $("#more-settings-btn");
+    if (hidden) {
+      panel.removeAttribute("hidden");
+      btn.innerHTML = 'Less settings <span class="more-settings-arrow">▴</span>';
+    } else {
+      panel.setAttribute("hidden", "");
+      btn.innerHTML = 'More settings <span class="more-settings-arrow">▾</span>';
+    }
+  });
+
   dropzone.addEventListener("click", () => fileInput.click());
   fileInput.addEventListener("change", () => handleFile(fileInput.files[0]));
 
@@ -87,9 +117,12 @@
     }
 
     const minElo = parseInt($("#min-elo").value, 10) || 2400;
-    const target = parseInt($("#target-count").value, 10) || 3;
+    const target = Infinity;
     const useSf = $("#stockfish-toggle").checked;
     const sfDepth = parseInt($("#sf-depth").value, 10) || 10;
+    const excludeKeywords = Array.from(document.querySelectorAll(".exclude-keyword"))
+      .map(el => el.value.trim().toLowerCase())
+      .filter(k => k.length > 0);
     // Save token to localStorage so user doesn't need to re-enter it
     try { localStorage.setItem("nh_lichess_token", token); } catch { }
 
@@ -132,7 +165,7 @@
     };
 
     try {
-      results = await analyzeGames(pgnText, { minElo, target, token, sfDepth }, onProgress, abortCtrl, sfWorker);
+      results = await analyzeGames(pgnText, { minElo, target, token, sfDepth, excludeKeywords }, onProgress, abortCtrl, sfWorker);
     } catch (err) {
       progressText.textContent = "Error: " + err.message;
       return;
