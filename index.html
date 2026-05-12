@@ -144,9 +144,6 @@
       <section id="career" class="section reveal">
         <div class="container">
           <h2 class="section__title">My Career</h2>
-          <p class="section__text">
-            A couple moments that were remarkable in my career.
-          </p>
           <div class="career-timeline-wrapper">
             <div class="career-timeline">
               <article class="milestone">
@@ -280,33 +277,10 @@
         <div class="container">
           <h2 class="section__title">Novelty Hunter <span class="badge-new">New!</span></h2>
           <p class="section__text">
-            Searching for novelties in chess is some serious grunt work. You have to manually
-            go through game after game, looking for interesting moves, and it just takes too much time.
-            So I came up with the idea of creating Novelty Hunter. This is a very simple open-source tool
-            that hastens your search for the next move that will make you win a quick game, or maybe just 
-            find something new and interesting to add to your repertoire. Its core revolves around calculating
-            a rarity score and an interest score for rare moves in a game. You can find more info here.
+            Searching for novelties is some serious grunt work — going through game after game looking for something interesting takes forever.
+            So I built this. Drop in a PGN file and it scans your games against the Lichess Masters database, flags rare moves, runs them through Stockfish,
+            and ranks them by an interest score I designed. Open-source, runs in the browser, no install needed.
           </p>
-          <div class="nh-promo">
-            <div class="nh-promo__card">
-              <div class="nh-promo__icon">&#128214;</div>
-              <h3 class="nh-promo__title">Find Rare Moves</h3>
-              <p class="nh-promo__text">Upload a pgn file and it will find rare and (hopefully) interesting moves for you.</p>
-            </div>
-            <div class="nh-promo__card">
-              <div class="nh-promo__icon">&#128269;</div>
-              <h3 class="nh-promo__title">What makes a move rare?</h3>
-              <p class="nh-promo__text">To decide if a move is rare I take into consideration how many times the move was played vs how many
-                times the most popular move was played and how many games there were before and after the move.</p>
-            </div>
-            <div class="nh-promo__card">
-              <div class="nh-promo__icon">&#8252;</div>
-              <h3 class="nh-promo__title">What makes a move interesting?</h3>
-              <p class="nh-promo__text">Here I consider how late the rare move was played, the game result
-                and the engine's evaluation. I used Stockfish 18 Lite and considered the difference in evaluation between
-                when the move was played and 5 moves later.</p>
-            </div>
-          </div>
           <a class="btn btn--primary nh-launch-btn" href="novelty-hunter/">Open Novelty Hunter</a>
         </div>
       </section>
@@ -342,8 +316,13 @@
               </label>
 
               <label class="form__label">
+                Email
+                <input class="form__input" type="email" name="email" placeholder="your@email.com" required />
+              </label>
+
+              <label class="form__label">
                 Message
-                <textarea class="form__textarea" name="message" rows="4" placeholder="Write something… (leave your email in the end)" required></textarea>
+                <textarea class="form__textarea" name="message" rows="4" placeholder="Hello, I'd like to know more about the classes..." required></textarea>
               </label>
 
               <button class="btn btn--primary" type="submit" id="contact-submit">Send</button>
