@@ -2,33 +2,26 @@ function sumMoveGames(moveInfo) {
   return moveInfo.white + moveInfo.black + moveInfo.draws;
 }
 
-function computeMoveFreq(moveInfo, mostPlayedMove) {
-  return sumMoveGames(moveInfo) / sumMoveGames(mostPlayedMove);
+function computeMoveFreq(moveInfo, mostPlayedMove) { // done to give more rarity to a scenario of 0/1000 than 0/1
+  return sumMoveGames(moveInfo) != 0 ? sumMoveGames(moveInfo) / sumMoveGames(mostPlayedMove) : 1 / sumMoveGames(mostPlayedMove);
 }
 
 function computeRarityScore(frequency, followUpGames,
-                            threshold = 0.05) {
+                            threshold) {
 
-  // followUpScore: fewer follow-up games = rarer = higher. bounded ]0, 1]
-  const followUpScore = Math.min(1, 1/followUpGames);
+  // followUpScore: fewer follow-up games = rarer = higher
+  const followUpScore = Math.min(0.2, 1 / followUpGames);
 
-  // frequencyScore: lower frequency = rarer = higher. bounded ]0, 1]
-  const frequencyScore = 1 - (frequency/threshold);
+  // frequencyScore: lower frequency = rarer = higher
+  const frequencyScore = 1 - (frequency / threshold);
 
-  return Math.round((0.5 * followUpScore + 0.5 * frequencyScore) * 1000) / 1000;
+  return Math.max(0, Math.min(1, Math.round((followUpScore + frequencyScore) * 1000) / 1000));
 }
 
-function computeEarlyNovScore(moveThreshold, moveNumber) {
-  // bounded in ]0, 1]
-  let score = 0;
-  let bonus = 0;
-  if (moveNumber <= moveThreshold) {
-    bonus = 1
-  }
-  if (moveNumber > moveThreshold) {
-    bonus = (moveThreshold/moveNumber)
-  }
-  return score + bonus
+function computeEarlyNovScore(moveThreshold, moveNumber, maxMove = 15) {
+  if (moveNumber <= moveThreshold) return 1;
+  if (moveNumber >= maxMove) return 0;
+  return (maxMove - moveNumber) / (maxMove - moveThreshold);
 }
 
 function computeResultScore(result, whiteToMove) {
@@ -48,14 +41,12 @@ function computeResultScore(result, whiteToMove) {
 
 function computeEfficiencyScore(result, whiteToMove, stockfishScore = null) {
   const resultScore = computeResultScore(result, whiteToMove);
-  console.log(`stockfish score: ${stockfishScore}`)
 
   if (stockfishScore === null) {
     return Math.round(resultScore * 1000) / 1000;
   }
 
   const normalizedStockfish = Math.max(-1, Math.min(1, stockfishScore / 2));
-  console.log(`normalized stockfish score: ${normalizedStockfish}`)
   return Math.max(-1, Math.min(1, Math.round((normalizedStockfish + 0.2 * resultScore) * 1000) / 1000));
 }
 
@@ -65,7 +56,7 @@ function computeInterestScore(rarityScore, efficiencyScore, earlyNovScore) {
 }
 
 function isRare(moveSan, movesData,
-                threshold = 0.05, minGames = 10, maxGames = 100) {
+                threshold, minGames, maxGames) {
   const movesDict = {};
   for (const m of movesData.moves) movesDict[m.san] = m;
 
@@ -81,7 +72,7 @@ function isRare(moveSan, movesData,
 
 function getAllMoveInfo(moveSan, movesData, moveNumber, result, whiteToMove,
                        stockfishScore = null,
-                       threshold = 0.05,
+                       threshold = 0.1,
                        moveThreshold = 5) {
   const gamesBefore = movesData['white'] + movesData['draws'] + movesData['black'];
   const movesDict = {};
@@ -90,7 +81,7 @@ function getAllMoveInfo(moveSan, movesData, moveNumber, result, whiteToMove,
   const moveInfo = movesDict[moveSan] || null;
   let frequency, followUpGames;
   if (!moveInfo) {
-    frequency = 0.0;
+    frequency = movesData.moves.length > 0 ? 1 / sumMoveGames(movesData.moves[0]) : 0.0;
     followUpGames = 0;
   } else {
     frequency = computeMoveFreq(moveInfo, movesData.moves[0]);

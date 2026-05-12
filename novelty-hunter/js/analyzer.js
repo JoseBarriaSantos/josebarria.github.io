@@ -229,9 +229,6 @@ async function getStockfishScore(moves, noveltyPly, whiteToMove, sfWorker, depth
     const cpAfterWhite = chessAfter.turn() === 'w' ? cpAfter : -cpAfter;
     const cpLaterWhite = chessLater.turn() === 'w' ? cpLater : -cpLater;
 
-    console.log(`cpAfter (raw): ${cpAfter}, side to move: ${chessAfter.turn()}, cpAfterWhite: ${cpAfterWhite}`)
-    console.log(`cpLater (raw): ${cpLater}, side to move: ${chessLater.turn()}, cpLaterWhite: ${cpLaterWhite}`)
-    console.log(`whiteToMove: ${whiteToMove}`)
     const diff = (cpLaterWhite - cpAfterWhite) / 100.0;
     const bonus = whiteToMove ? diff : -diff;
     return { bonus: Math.round(bonus * 100) / 100, cpAfter, cpLater };
@@ -252,16 +249,21 @@ async function getStockfishScore(moves, noveltyPly, whiteToMove, sfWorker, depth
  * @returns {Promise<Array>} sorted results array
  */
 async function analyzeGames(pgnText, options, onProgress, abortCtrl, sfWorker) {
-  const { minElo = 2400, target = 1, token = "", sfDepth = 10 } = options;
+  const { minElo = 2400, target = 1, token = "", sfDepth = 10, excludeKeywords = [] } = options;
   const gamePgns = splitPgn(pgnText);
   const fenCache = new Map();
   const results = [];
-  // Quick pre-count of Elo-eligible games
+  // Quick pre-count of eligible games (Elo + keyword filter)
   let totalGames = 0;
   for (const pgn of gamePgns) {
     const wElo = parseInt(pgnHeader(pgn, "WhiteElo") || "0", 10);
     const bElo = parseInt(pgnHeader(pgn, "BlackElo") || "0", 10);
-    if (wElo >= minElo && bElo >= minElo) totalGames++;
+    if (wElo < minElo || bElo < minElo) continue;
+    if (excludeKeywords.length > 0) {
+      const event = (pgnHeader(pgn, "Event") || "").toLowerCase();
+      if (excludeKeywords.some(k => event.includes(k))) continue;
+    }
+    totalGames++;
   }
 
   let skippedParse = 0;
@@ -278,6 +280,12 @@ async function analyzeGames(pgnText, options, onProgress, abortCtrl, sfWorker) {
     const blackElo = parseInt(pgnHeader(pgn, "BlackElo") || "0", 10);
     if (whiteElo < minElo || blackElo < minElo) {
       continue;
+    }
+
+    // Filter by excluded tournament keywords
+    if (excludeKeywords.length > 0) {
+      const event = (pgnHeader(pgn, "Event") || "").toLowerCase();
+      if (excludeKeywords.some(k => event.includes(k))) continue;
     }
 
     eligibleDone++;
@@ -326,7 +334,7 @@ async function analyzeGames(pgnText, options, onProgress, abortCtrl, sfWorker) {
       const moveSan = history[mi];
       const whiteToMove = chess.turn() === "w";
 
-      if (isRare(moveSan, movesData, 0.05, 10, 500)) {
+      if (isRare(moveSan, movesData, 0.05, 10, 100)) {
         const noveltyPly = mi;
 
         // Stockfish score (if enabled)

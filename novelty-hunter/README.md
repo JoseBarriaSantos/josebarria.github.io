@@ -37,12 +37,12 @@ novelty-hunter/
 
 The heart of the tool. Here is how the scores are calculated in `scoring.js`.
 
-### 1. Rarity Score `(0, 1]`
+### 1. Rarity Score `[0, 1]`
 
 Measures how rare the move is in the database.
 
 ```
-rarityScore = 50% followUpScore + 50% frequencyScore
+rarityScore = followUpScore + frequencyScore
 
 followUpScore = min(1, 1/followUpGames)
 frequencyScore = 1 − (frequency/threshold)
@@ -52,16 +52,16 @@ frequencyScore = 1 − (frequency/threshold)
 - **frequencyScore** — rewards moves further below the frequency threshold.
 - **followUpGames** — How many games there are with the rare move.
 - **frequency** — calculated as followUpGames/mostPopularMoveFollowUpGames as opposed to followUpGames/totalGames. This was done to heavily increase frequency numbers. For example, if we have a position where move A has 35 games, B has 35, C has 30, the normal frequency would say C has 30% frequency, but comparing with the most popular move the frequency would be 86%, thus we could immediately ditch this move.
-- **frequencyThreshold** — 5% by default.
+- **frequencyThreshold** — 10% by default.
 
 ### 2. Efficiency Score `[-1, 1]`
 
 Measures whether the rare move was any good in the game.
 
 ```
-efficiencyScore = clamp(normalizedStockfish + 20% resultScore, −1, 1)
+efficiencyScore = normalizedStockfish + 20% resultScore
 
-normalizedStockfish = clamp(stockfishScore / 2, −1, 1)
+normalizedStockfish = stockfishScore / 2
 ```
 
 The **Stockfish score** is the eval change from the side that played the novelty's perspective: `(eval 5 moves later) − (eval after novelty)`. Clamped to `[−2, +2]`, since it is considered that +2 is a completely winning advantage, and normalized to `[−1, 1]`.
@@ -79,13 +79,13 @@ The **result score** is a bonus/penalty based on the game outcome:
 
 Efficiency can be negative, since a rare move that led to a bad position and a loss should penalize the final interest score.
 
-### 3. Early Novelty Score `(0, 1]`
+### 3. Early Novelty Score `[0, 1]`
 
 Rewards novelties played earlier in the opening.
 
 ```
-earlyNovScore = 1.0              if moveNumber ≤ 5
-earlyNovScore = 5 / moveNumber   if moveNumber > 5
+earlyNovScore = 1.0                      if moveNumber ≤ 5
+earlyNovScore = (15 - moveNumber) / 10   if moveNumber > 5
 ```
 
 ### 4. Final Interest Score `[0, 1]`
