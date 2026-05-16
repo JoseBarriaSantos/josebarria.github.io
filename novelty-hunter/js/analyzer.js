@@ -249,63 +249,44 @@ async function getStockfishScore(moves, noveltyPly, whiteToMove, sfWorker, depth
  * @returns {Promise<Array>} sorted results array
  */
 async function analyzeGames(pgnText, options, onProgress, abortCtrl, sfWorker) {
-  const { minElo = 2400, target = 1, token = "", sfDepth = 10, excludeKeywords = [] } = options;
+  const { minElo = 2400, target = 1, token = "", sfDepth = 10, excludeKeywords = [], concurrency = 12 } = options;
   const gamePgns = splitPgn(pgnText);
   const fenCache = new Map();
   const results = [];
-  // Quick pre-count of eligible games (Elo + keyword filter)
-  let totalGames = 0;
-  for (const pgn of gamePgns) {
+
+  const eligibleGames = gamePgns.filter(pgn => {
     const wElo = parseInt(pgnHeader(pgn, "WhiteElo") || "0", 10);
     const bElo = parseInt(pgnHeader(pgn, "BlackElo") || "0", 10);
-    if (wElo < minElo || bElo < minElo) continue;
+    if (wElo < minElo || bElo < minElo) return false;
     if (excludeKeywords.length > 0) {
       const event = (pgnHeader(pgn, "Event") || "").toLowerCase();
-      if (excludeKeywords.some(k => event.includes(k))) continue;
+      if (excludeKeywords.some(k => event.includes(k))) return false;
     }
-    totalGames++;
-  }
+    return true;
+  });
 
-  let skippedParse = 0;
+  const totalGames = eligibleGames.length;
   let eligibleDone = 0;
+  let skippedParse = 0;
+  let cacheHits = 0;
+  let cacheMisses = 0;
 
-  for (let gi = 0; gi < gamePgns.length; gi++) {
-    if (abortCtrl.aborted) break;
-    if (results.length >= target) break;
-
-    const pgn = gamePgns[gi];
-
-    // Filter by Elo
+  async function processGame(pgn) {
     const whiteElo = parseInt(pgnHeader(pgn, "WhiteElo") || "0", 10);
     const blackElo = parseInt(pgnHeader(pgn, "BlackElo") || "0", 10);
-    if (whiteElo < minElo || blackElo < minElo) {
-      continue;
-    }
 
-    // Filter by excluded tournament keywords
-    if (excludeKeywords.length > 0) {
-      const event = (pgnHeader(pgn, "Event") || "").toLowerCase();
-      if (excludeKeywords.some(k => event.includes(k))) continue;
-    }
-
-    eligibleDone++;
-
-    // Parse game moves (with comment stripping + fallback)
     const history = parsePgnMoves(pgn);
     if (!history || history.length === 0) {
       skippedParse++;
       if (skippedParse <= 5) {
-        console.warn(`[Novelty Hunter] Failed to parse game ${gi + 1}: ${pgnHeader(pgn, "White")} vs ${pgnHeader(pgn, "Black")}`);
+        console.warn(`[Novelty Hunter] Failed to parse game: ${pgnHeader(pgn, "White")} vs ${pgnHeader(pgn, "Black")}`);
       }
-      onProgress(eligibleDone, totalGames, results);
-      continue;
+      return null;
     }
 
-    // Replay the game to query positions
     const chess = new Chess();
-    let inCache = true; // stays true while positions are found in cache
     for (let mi = 0; mi < history.length; mi++) {
-      if (abortCtrl.aborted) break;
+      if (abortCtrl.aborted) return null;
 
       const fullMoveNumber = Math.floor(mi / 2) + 1;
       if (fullMoveNumber > 15) break;
@@ -317,18 +298,16 @@ async function analyzeGames(pgnText, options, onProgress, abortCtrl, sfWorker) {
 
       const fen = chess.fen();
 
-      let movesData;
-      if (inCache && fenCache.has(fen)) {
-        movesData = fenCache.get(fen);
+      if (!fenCache.has(fen)) {
+        cacheMisses++;
+        fenCache.set(fen, fetchLichessMoves(fen, token));
       } else {
-        inCache = false;
-        await sleep(50); // Polite rate limit
-        movesData = await fetchLichessMoves(fen, token);
-        fenCache.set(fen, movesData);
+        cacheHits++;
       }
+      const movesData = await fenCache.get(fen);
 
       if (!movesData || !movesData.moves || movesData.moves.length === 0) {
-        break; // Position not in Masters DB — stop checking this game
+        break;
       }
 
       const moveSan = history[mi];
@@ -337,7 +316,6 @@ async function analyzeGames(pgnText, options, onProgress, abortCtrl, sfWorker) {
       if (isRare(moveSan, movesData, 0.05, 10, 100)) {
         const noveltyPly = mi;
 
-        // Stockfish score (if enabled)
         let sfResult = { bonus: null, cpAfter: null, cpLater: null };
         if (sfWorker) {
           sfResult = await getStockfishScore(history, noveltyPly, whiteToMove, sfWorker, sfDepth);
@@ -350,7 +328,7 @@ async function analyzeGames(pgnText, options, onProgress, abortCtrl, sfWorker) {
           sfResult.bonus
         );
 
-        results.push({
+        return {
           event: pgnHeader(pgn, "Event") || "Unknown Event",
           white: pgnHeader(pgn, "White") || "Unknown",
           white_elo: whiteElo,
@@ -374,16 +352,35 @@ async function analyzeGames(pgnText, options, onProgress, abortCtrl, sfWorker) {
           novelty_ply: noveltyPly,
           game_pgn: pgn,
           moves: history,
-        });
-
-        break; // Only first rare move per game
+        };
       }
 
       chess.move(history[mi], { sloppy: true });
     }
 
-    onProgress(eligibleDone, totalGames, results);
+    return null;
   }
+
+  const startTime = performance.now();
+  let gameIndex = 0;
+
+  async function worker() {
+    while (gameIndex < eligibleGames.length && !abortCtrl.aborted && results.length < target) {
+      const pgn = eligibleGames[gameIndex++];
+      const result = await processGame(pgn);
+      eligibleDone++;
+      if (result) results.push(result);
+      onProgress(eligibleDone, totalGames, results);
+    }
+  }
+
+  await Promise.all(Array.from({ length: concurrency }, worker));
+
+  const elapsedMs = performance.now() - startTime;
+  const elapsedMin = (elapsedMs / 60000).toFixed(2);
+  const msPerGame = (elapsedMs / totalGames).toFixed(0);
+  // console.log(`[Timing] Total: ${elapsedMin} min | Per game: ${msPerGame} ms | Games: ${totalGames}`);
+  // console.log(`[Cache] Hits: ${cacheHits}, Misses: ${cacheMisses}, Hit rate: ${(cacheHits / (cacheHits + cacheMisses) * 100).toFixed(1)}%`);
 
   results.sort((a, b) => b.interest_score - a.interest_score);
   return results;
