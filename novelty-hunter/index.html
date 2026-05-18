@@ -47,73 +47,152 @@
     <section id="upload-section" class="app-state active">
       <div class="upload-container">
         <h1 class="nh-logo">Novelty Hunter</h1>
-        <p class="nh-tagline">Find rare and interesting opening moves for your repertoire</p>
+        <p class="nh-tagline">Find interesting opening ideas for your next game!</p>
 
-        <!-- Dropzone -->
-        <div id="dropzone" class="dropzone">
-          <div class="dropzone-content">
-            <svg class="dropzone-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-              <polyline points="17 8 12 3 7 8" </>>
-              <line x1="12" y1="3" x2="12" y2="15" />
-            </svg>
-            <p>Drop a <strong>.pgn</strong> file here</p>
-            <p class="dropzone-hint">or <label class="file-label" for="file-input">browse</label></p>
-          </div>
-          <input type="file" id="file-input" accept=".pgn" hidden />
-          <p id="file-name" class="file-name"></p>
-        </div>
-
-        <!-- Settings -->
         <div class="settings-panel">
-          <h3>Settings</h3>
-          <div class="settings-grid">
-            <div class="setting setting-full">
-              <label for="lichess-token">Lichess API Token</label>
-              <input type="password" id="lichess-token" placeholder="lip_..." autocomplete="off" />
-              <p class="toggle-hint">This is used to access the Lichess database. Get one at <a href="https://lichess.org/account/oauth/token"
-                  target="_blank" class="link-accent">lichess.org/account/oauth/token</a> (leave deafult settings). P.S: Your token is sent
-                  directly to lichess. Novelty Hunter doesn't have a server and never sees it.
-              </p>
-            </div>
-            <div class="setting">
-              <label for="min-elo">Minimum Elo</label>
-              <input type="number" id="min-elo" value="2400" min="0" max="3000" step="50" />
-            </div>
-            <div class="setting">
-              <div class="toggle-row">
-                <input type="checkbox" id="stockfish-toggle" />
-                <label for="stockfish-toggle">Stockfish evaluation</label>
-              </div>
-              <input type="number" id="sf-depth" value="30" min="1" max="30" step="1" class="depth-input" title="Engine depth" style="width:100%" disabled />
-              <p class="toggle-hint">Using the engine provides slower but more interesting scoring.</p>
-            </div>
-          </div>
 
-          <button type="button" id="more-settings-btn" class="btn btn--ghost more-settings-btn">More settings <span class="more-settings-arrow">▾</span></button>
-
-          <div id="more-settings" class="more-settings-panel" hidden>
-            <div class="settings-grid">
-              <div class="setting setting-full">
-                <label>Exclude tournaments containing word (up to 6 keywords):</label>
-                <div class="exclude-keywords" id="exclude-keywords">
-                  <input type="text" class="exclude-keyword" placeholder="e.g. Titled" />
+          <div class="accordion-section">
+            <button class="accordion-btn" data-target="acc-time">
+              1) Select time period
+              <span class="accordion-arrow">▾</span>
+            </button>
+            <div class="accordion-content" id="acc-time">
+              <div class="accordion-inner">
+                <p class="accordion-section-label">Find novelties in:</p>
+                <div class="source-options">
+                  <button class="source-btn active" data-source="lastweek">Last Week</button>
+                  <button class="source-btn" data-source="lastmonth">Last Month</button>
+                  <button class="source-btn" data-source="custom">Custom PGN</button>
+                </div>
+                <div id="dropzone" class="dropzone" hidden>
+                  <div class="dropzone-content">
+                    <svg class="dropzone-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                      <polyline points="17 8 12 3 7 8" < />>
+                      <line x1="12" y1="3" x2="12" y2="15" />
+                    </svg>
+                    <p>Drop a <strong>.pgn</strong> file here</p>
+                    <p class="dropzone-hint">or <label class="file-label" for="file-input">browse</label></p>
+                  </div>
+                  <input type="file" id="file-input" accept=".pgn" hidden />
+                  <p id="file-name" class="file-name"></p>
                 </div>
               </div>
             </div>
           </div>
+
+          <div class="accordion-section">
+            <button class="accordion-btn" data-target="acc-opening">
+              2) Select opening <span class="accordion-optional"></span>
+              <span class="accordion-arrow">▾</span>
+            </button>
+            <div class="accordion-content" id="acc-opening">
+              <div class="accordion-inner">
+                <p class="accordion-section-label">Find novelties in games starting from this position:</p>
+                <div class="filter-layout">
+                  <div id="filter-board" class="filter-board-el"></div>
+                  <div class="filter-side">
+                    <div id="filter-notation" class="filter-notation"></div>
+                    <div class="filter-controls">
+                      <button type="button" id="filter-prev" class="btn btn--ghost filter-nav-btn"
+                        disabled>&#8249;</button>
+                      <button type="button" id="filter-next" class="btn btn--ghost filter-nav-btn"
+                        disabled>&#8250;</button>
+                      <button type="button" id="filter-clear" class="btn btn--ghost filter-clear-btn">Reset</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="accordion-section">
+            <button class="accordion-btn" data-target="acc-color">
+              3) Select color
+              <span class="accordion-arrow">▾</span>
+            </button>
+            <div class="accordion-content" id="acc-color">
+              <div class="accordion-inner">
+                <p class="accordion-section-label">Side that plays the novelty:</p>
+                <div class="color-filter-options">
+                  <label class="color-filter-option">
+                    <input type="checkbox" id="color-white" checked />
+                    White
+                  </label>
+                  <label class="color-filter-option">
+                    <input type="checkbox" id="color-black" checked />
+                    Black
+                  </label>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="accordion-section">
+            <button class="accordion-btn" data-target="acc-token">
+              4) Paste Lichess API key
+              <span class="accordion-arrow">▾</span>
+            </button>
+            <div class="accordion-content" id="acc-token">
+              <div class="accordion-inner">
+                <label for="lichess-token">Lichess API Token <span class="tooltip-anchor"
+                    data-tooltip="Used to query the Lichess Masters database without overloading it.&#10;Your token goes directly to Lichess. Novelty Hunter has no server and never sees it.">?</span></label>
+                <input type="password" id="lichess-token" placeholder="lip_..." autocomplete="off" />
+                <p class="toggle-hint">Get one at <a href="https://lichess.org/account/oauth/token" target="_blank"
+                    class="link-accent">lichess.org/account/oauth/token</a> (leave default settings).</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="accordion-section">
+            <button class="accordion-btn accordion-btn--minor" data-target="acc-more">
+              More options
+              <span class="accordion-arrow">▾</span>
+            </button>
+            <div class="accordion-content" id="acc-more">
+              <div class="accordion-inner">
+                <div class="settings-grid">
+                  <div class="setting">
+                    <label for="min-elo">Minimum Elo</label>
+                    <input type="number" id="min-elo" value="2400" min="0" max="3000" step="50" />
+                  </div>
+                  <div class="setting">
+                    <div class="toggle-row">
+                      <input type="checkbox" id="stockfish-toggle" />
+                      <label for="stockfish-toggle">Stockfish evaluation</label>
+                      <span class="tooltip-anchor"
+                        data-tooltip="Using the engine provides slower but more interesting scoring.">?</span>
+                    </div>
+                    <input type="number" id="sf-depth" value="30" min="1" max="30" step="1" class="depth-input"
+                      title="Engine depth" style="width:100%" disabled />
+                  </div>
+                  <div class="setting setting-full" style="margin-top: 0.5rem;">
+                    <label>Exclude tournaments containing word (up to 6 words):</label>
+                    <div class="exclude-keywords" id="exclude-keywords">
+                      <input type="text" class="exclude-keyword" placeholder="e.g. Titled" />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
         </div>
 
-        <button id="analyze-btn" class="btn btn--primary nh-btn" disabled>Analyze</button>
+        <button id="analyze-btn" class="btn btn--primary nh-btn">Analyze</button>
+        <p id="upload-error" class="upload-error" hidden></p>
 
         <p class="nh-credits">This wouldn't be possible without these open-source resouces
           <a class="link-accent" href="https://github.com/lichess-org/chessground" target="_blank">Chessground</a>,
           <a class="link-accent" href="https://github.com/jhlywa/chess.js" target="_blank">chess.js</a>,
-          <a class="link-accent" href="https://github.com/official-stockfish/Stockfish" target="_blank">Stockfish 18</a>, and the
-          <a class="link-accent" href="https://lichess.org/api#tag/Opening-Explorer" target="_blank">Lichess Masters database</a>.
+          <a class="link-accent" href="https://github.com/official-stockfish/Stockfish" target="_blank">Stockfish
+            18</a>, and the
+          <a class="link-accent" href="https://lichess.org/api#tag/Opening-Explorer" target="_blank">Lichess Masters
+            database</a>.
           Made with ♥ <br>
-          You can check out reasonings for the formulas and docs <a class="link-accent" href="https://github.com/JoseBarriaSantos/my_website" target="_blank">here</a>.
-        </br>
+          You can check out reasonings for the formulas and docs <a class="link-accent"
+            href="https://github.com/JoseBarriaSantos/my_website" target="_blank">here</a>.
+          </br>
         </p>
       </div>
 
@@ -121,20 +200,30 @@
         <h3 class="changelog-title">Changelog</h3>
         <ul class="changelog-list">
           <li class="changelog-entry">
-            <span class="changelog-date">2026-04-17</span>
-            <span class="changelog-text">Fixed bug with efficiency score: with the old weights white was getting a max of 0.9 efficiency score. SF score now has full weight so max is 1.</span>
-          </li>
-          <li class="changelog-entry">
-            <span class="changelog-date">2026-04-18</span>
-            <span class="changelog-text">Increased general rarity scores by 100%+ because they were too low. <br> Changed early nov function to (15 - x)/10 so that
-              move 5 gets 1.0, move 10 gets 0.5 and move 15 gets 0. <br> Added option to filter out custom tournaments. <br> Removed novelties textbox.
+            <span class="changelog-date">2026-05-18</span>
+            <span class="changelog-text">Complete UI revamp. It wasn't clear what Novelty Hunter is for. Now it is: finding opening ideas.
+              Added position and color filters and unburdened the user by not having to drop pgn.
             </span>
           </li>
           <li class="changelog-entry">
             <span class="changelog-date">2026-05-16</span>
-            <span class="changelog-text">MASSIVE UPGRADE. Mariana had the brilliant idea to use concurrency in the API calls making
+            <span class="changelog-text">MASSIVE UPGRADE. Mariana had the brilliant idea to use concurrency in the API
+              calls making
               a batch of 700 games go from taking 90 mins down to 3!
             </span>
+          </li>
+          <li class="changelog-entry">
+            <span class="changelog-date">2026-04-18</span>
+            <span class="changelog-text">Increased general rarity scores by 100%+ because they were too low. <br>
+              Changed early nov function to (15 - x)/10 so that
+              move 5 gets 1.0, move 10 gets 0.5 and move 15 gets 0. <br> Added option to filter out custom tournaments.
+              <br> Removed novelties textbox.
+            </span>
+          </li>
+          <li class="changelog-entry">
+            <span class="changelog-date">2026-04-17</span>
+            <span class="changelog-text">Fixed bug with efficiency score: with the old weights white was getting a max
+              of 0.9 efficiency score. SF score now has full weight so max is 1.</span>
           </li>
         </ul>
       </aside>
@@ -199,7 +288,8 @@
           </div>
           <div class="info-field">
             <span class="info-label">Frequency
-              <span class="tooltip-anchor" data-tooltip="followUpGames/mostPopularMoveGames&#10;&#10;Not followUpGames/totalGames —&#10;check out docs for more info.">?</span>
+              <span class="tooltip-anchor"
+                data-tooltip="followUpGames/mostPopularMoveGames&#10;&#10;Not followUpGames/totalGames —&#10;check out docs for more info.">?</span>
             </span>
             <span id="info-frequency" class="info-value"></span>
           </div>
@@ -220,14 +310,17 @@
             <div class="info-field">
               <span class="info-label">
                 Rarity Score
-                <span class="tooltip-anchor" data-tooltip="50% Follow-up score + 50% Frequency score&#10;&#10;Follow-up score: min(1, 10/followUpGames)&#10;fewer follow-up games → higher&#10;Frequency Score: (1 − freq / threshold)&#10;closer to 0% → higher">?</span>
+                <span class="tooltip-anchor"
+                  data-tooltip="50% Follow-up score + 50% Frequency score&#10;&#10;Follow-up score: min(1, 10/followUpGames)&#10;fewer follow-up games → higher&#10;Frequency Score: (1 − freq / threshold)&#10;closer to 0% → higher">?</span>
               </span>
               <span id="info-rarity-score" class="info-value"></span>
             </div>
             <div class="info-field">
               <span class="info-label">
                 Efficiency Score
-                <span class="tooltip-anchor" data-tooltip="80% Δeval + 20% resultScore&#10;&#10;Δeval: Stockfish eval 5 moves later − eval after move&#10;resultScore: game result bonus/penalty">?</span>
+                <span class="tooltip-anchor"
+                  data-tooltip="80% Δeval + 20% resultScore&#10;&#10;Δeval: Stockfish eval 5 moves later − eval after move&#10;resultScore: game result bonus/penalty&#10;&#10;Efficiency score is more meaningful with the engine on but 
+                  takes much longer to run">?</span>
               </span>
               <span id="info-efficiency-score" class="info-value"></span>
             </div>
@@ -235,14 +328,16 @@
           <div class="info-field">
             <span class="info-label">
               Early Novelty Score
-              <span class="tooltip-anchor" data-tooltip="1.0 if moveNumber ≤ 5, otherwise 5/moveNumber &#10;&#10;earlier novelties → more interesting">?</span>
+              <span class="tooltip-anchor"
+                data-tooltip="1.0 if moveNumber ≤ 5, otherwise 5/moveNumber &#10;&#10;earlier novelties → more interesting">?</span>
             </span>
             <span id="info-early-nov-score" class="info-value"></span>
           </div>
           <div class="info-field">
             <span class="info-label">
               Final Interest Score
-              <span class="tooltip-anchor" data-tooltip="40% earlyNovScore + 40% rarity + 20% efficiency&#10;clamped to [0, 1]&#10;&#10;earlyNovScore: bonus for early opening novelties">?</span>
+              <span class="tooltip-anchor"
+                data-tooltip="40% earlyNovScore + 40% rarity + 20% efficiency&#10;clamped to [0, 1]&#10;&#10;earlyNovScore: bonus for early opening novelties">?</span>
             </span>
             <span id="info-interest-score" class="info-value accent-value"></span>
           </div>
@@ -258,9 +353,11 @@
     const scripts = [
       "https://unpkg.com/chessground@8.2.1/dist/chessground.min.js",
       "https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js",
+      "https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js",
       "js/stockfish-worker.js",
       "js/scoring.js",
       "js/analyzer.js",
+      "js/twic-fetcher.js",
       "js/ui.js"
     ];
 

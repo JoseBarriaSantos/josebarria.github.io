@@ -11,6 +11,10 @@
   let chess = null; // chess.js instance for replaying positions
   let sfWorker = null;
   let abortCtrl = { aborted: false };
+  let sourceMode = "lastweek";
+  let filterMoves = [];
+  let filterPly = 0;
+  let filterBoardInst = null;
 
   // ── DOM refs ─────────────────────────────────────────────────
   const $ = (sel) => document.querySelector(sel);
@@ -24,6 +28,8 @@
   const fileInput = $("#file-input");
   const fileName = $("#file-name");
   const analyzeBtn = $("#analyze-btn");
+  const sourceBtns = document.querySelectorAll(".source-btn");
+  const uploadError = $("#upload-error");
 
   // Analyzing
   const progressFill = $("#progress-fill");
@@ -43,6 +49,18 @@
     section.classList.add("active");
   }
 
+  // ── Source selector ──────────────────────────────────────────
+  sourceBtns.forEach(btn => {
+    btn.addEventListener("click", () => {
+      sourceBtns.forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+      sourceMode = btn.dataset.source;
+      dropzone.hidden = sourceMode !== "custom";
+      analyzeBtn.disabled = sourceMode === "custom" && !pgnText;
+      if (uploadError) { uploadError.hidden = true; uploadError.textContent = ""; }
+    });
+  });
+
   // ── Upload state logic ───────────────────────────────────────
   function handleFile(file) {
     if (!file || !file.name.toLowerCase().endsWith(".pgn")) return;
@@ -50,7 +68,7 @@
     const reader = new FileReader();
     reader.onload = () => {
       pgnText = reader.result;
-      analyzeBtn.disabled = false;
+      if (sourceMode === "custom") analyzeBtn.disabled = false;
     };
     reader.readAsText(file);
   }
@@ -78,18 +96,116 @@
     input.focus();
   });
 
-  // More settings toggle
-  $("#more-settings-btn").addEventListener("click", () => {
-    const panel = $("#more-settings");
-    const hidden = panel.hasAttribute("hidden");
-    const btn = $("#more-settings-btn");
-    if (hidden) {
-      panel.removeAttribute("hidden");
-      btn.innerHTML = 'Less settings <span class="more-settings-arrow">▴</span>';
-    } else {
-      panel.setAttribute("hidden", "");
-      btn.innerHTML = 'More settings <span class="more-settings-arrow">▾</span>';
+  // Accordion sections
+  document.querySelectorAll(".accordion-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const content = document.getElementById(btn.dataset.target);
+      if (!content) return;
+      const opening = !btn.classList.contains("open");
+      btn.classList.toggle("open", opening);
+      content.classList.toggle("open", opening);
+      if (opening && btn.dataset.target === "acc-opening") {
+        initFilterBoard();
+        filterRefresh();
+      }
+    });
+  });
+
+  // ── Position filter board ────────────────────────────────────
+  function filterChessAt(ply) {
+    const c = new Chess();
+    for (let i = 0; i < ply; i++) c.move(filterMoves[i], { sloppy: true });
+    return c;
+  }
+
+  function filterGetFen() {
+    return filterChessAt(filterPly).fen().split(" ").slice(0, 2).join(" ");
+  }
+
+  function filterRefresh() {
+    if (!filterBoardInst) return;
+    const chess = filterChessAt(filterPly);
+    const turn = chess.turn() === "w" ? "white" : "black";
+    const dests = new Map();
+    for (const m of chess.moves({ verbose: true })) {
+      if (!dests.has(m.from)) dests.set(m.from, []);
+      dests.get(m.from).push(m.to);
     }
+    let lastMove = null;
+    if (filterPly > 0) {
+      const prev = filterChessAt(filterPly - 1);
+      const m = prev.move(filterMoves[filterPly - 1]);
+      if (m) lastMove = [m.from, m.to];
+    }
+    filterBoardInst.set({ fen: chess.fen(), turnColor: turn, movable: { free: false, color: "both", dests }, lastMove });
+
+    // Render notation
+    const notEl = document.getElementById("filter-notation");
+    if (notEl) {
+      let html = "";
+      for (let i = 0; i < filterMoves.length; i++) {
+        if (i % 2 === 0) html += `<span class="filter-mv-num">${i / 2 + 1}. </span>`;
+        const cur = i === filterPly - 1 ? " filter-mv-current" : i >= filterPly ? " filter-mv-future" : "";
+        html += `<span class="filter-mv${cur}" data-ply="${i + 1}">${filterMoves[i]}</span> `;
+      }
+      notEl.innerHTML = html;
+      notEl.querySelectorAll(".filter-mv").forEach(s =>
+        s.addEventListener("click", () => filterGoTo(parseInt(s.dataset.ply)))
+      );
+    }
+
+    const prevBtn = document.getElementById("filter-prev");
+    const nextBtn = document.getElementById("filter-next");
+    if (prevBtn) prevBtn.disabled = filterPly <= 0;
+    if (nextBtn) nextBtn.disabled = filterPly >= filterMoves.length;
+
+    const toggleBtn = document.querySelector('[data-target="acc-opening"]');
+    if (toggleBtn) toggleBtn.classList.toggle("filter-active", filterPly > 0);
+  }
+
+  function filterGoTo(ply) {
+    if (ply < 0 || ply > filterMoves.length) return;
+    filterPly = ply;
+    filterRefresh();
+  }
+
+  function initFilterBoard() {
+    if (filterBoardInst) return;
+    const chess = new Chess();
+    const dests = new Map();
+    for (const m of chess.moves({ verbose: true })) {
+      if (!dests.has(m.from)) dests.set(m.from, []);
+      dests.get(m.from).push(m.to);
+    }
+    filterBoardInst = Chessground(document.getElementById("filter-board"), {
+      movable: {
+        free: false,
+        color: "both",
+        dests,
+        events: {
+          after: (orig, dest) => {
+            const chess = filterChessAt(filterPly);
+            const move = chess.move({ from: orig, to: dest, promotion: "q" });
+            if (!move) { filterRefresh(); return; }
+            filterMoves = filterMoves.slice(0, filterPly);
+            filterMoves.push(move.san);
+            filterPly++;
+            filterRefresh();
+          },
+        },
+      },
+      animation: { enabled: true, duration: 100 },
+      coordinates: false,
+    });
+  }
+
+  const filterPrevBtn = document.getElementById("filter-prev");
+  const filterNextBtn = document.getElementById("filter-next");
+  const filterClearBtn = document.getElementById("filter-clear");
+  if (filterPrevBtn) filterPrevBtn.addEventListener("click", () => filterGoTo(filterPly - 1));
+  if (filterNextBtn) filterNextBtn.addEventListener("click", () => filterGoTo(filterPly + 1));
+  if (filterClearBtn) filterClearBtn.addEventListener("click", () => {
+    filterMoves = []; filterPly = 0; filterRefresh();
   });
 
   dropzone.addEventListener("click", () => fileInput.click());
@@ -108,8 +224,6 @@
 
   // ── Analyze ──────────────────────────────────────────────────
   analyzeBtn.addEventListener("click", async () => {
-    if (!pgnText) return;
-
     const token = $("#lichess-token").value.trim();
     if (!token) {
       alert("Please enter your Lichess API token.");
@@ -123,7 +237,6 @@
     const excludeKeywords = Array.from(document.querySelectorAll(".exclude-keyword"))
       .map(el => el.value.trim().toLowerCase())
       .filter(k => k.length > 0);
-    // Save token to localStorage so user doesn't need to re-enter it
     try { localStorage.setItem("nh_lichess_token", token); } catch { }
 
     showState(analyzeSec);
@@ -131,8 +244,34 @@
     progressText.textContent = "Preparing...";
     foundMoves.innerHTML = "";
     abortCtrl = { aborted: false };
+    results = [];
 
-    // Init Stockfish if requested
+    // Step 1: Get PGN text (from TWIC or uploaded file)
+    let pgnToAnalyze = pgnText;
+
+    if (sourceMode !== "custom") {
+      progressText.textContent = "Fetching games from TWIC...";
+      try {
+        pgnToAnalyze = await fetchTwicGames(sourceMode, (msg, pct) => {
+          progressText.textContent = msg;
+          if (pct !== undefined) progressFill.style.width = pct + "%";
+        });
+      } catch (err) {
+        showState(uploadSec);
+        if (uploadError) {
+          uploadError.textContent = err.message;
+          uploadError.hidden = false;
+        }
+        return;
+      }
+    }
+
+    if (!pgnToAnalyze) return;
+
+    progressFill.style.width = "0%";
+    progressText.textContent = "Preparing analysis...";
+
+    // Step 2: Init Stockfish if requested
     sfWorker = null;
     if (useSf) {
       progressText.textContent = "Loading Stockfish engine...";
@@ -147,13 +286,23 @@
       }
     }
 
+    // Step 3: Run analysis
+    let analysisStartTime = null;
     const onProgress = (done, total, currentResults) => {
+      if (done === 0) analysisStartTime = performance.now();
       const pct = total > 0 ? Math.round((done / total) * 100) : 0;
       progressFill.style.width = pct + "%";
-      progressText.textContent =
-        `Analyzing game ${done} / ${total}...  Found ${currentResults.length} rare move${currentResults.length !== 1 ? "s" : ""}`;
 
-      // Show found moves as they come in
+      let eta = "";
+      if (done > 2 && analysisStartTime) {
+        const elapsed = (performance.now() - analysisStartTime) / 1000;
+        const remaining = Math.round((total - done) * elapsed / done);
+        eta = remaining < 60 ? ` (~${remaining}s left)` : ` (~${Math.ceil(remaining / 60)} min left)`;
+      }
+
+      progressText.textContent =
+        `Analyzing game ${done} / ${total}...  Found ${currentResults.length} rare move${currentResults.length !== 1 ? "s" : ""}${eta}`;
+
       foundMoves.innerHTML = "";
       for (const r of currentResults) {
         const div = document.createElement("div");
@@ -164,8 +313,15 @@
       }
     };
 
+    const filterFen = filterPly > 0 ? filterGetFen() : null;
+    const colorWhite = document.getElementById("color-white")?.checked ?? true;
+    const colorBlack = document.getElementById("color-black")?.checked ?? true;
+    const colorFilter = { white: colorWhite || (!colorWhite && !colorBlack), black: colorBlack || (!colorWhite && !colorBlack) };
     try {
-      results = await analyzeGames(pgnText, { minElo, target, token, sfDepth, excludeKeywords }, onProgress, abortCtrl, sfWorker);
+      results = await analyzeGames(pgnToAnalyze, { minElo, target, token, sfDepth, excludeKeywords, filterFen, colorFilter }, onProgress, abortCtrl, sfWorker, (msg, pct) => {
+        progressText.textContent = msg;
+        if (pct !== undefined) progressFill.style.width = pct + "%";
+      });
     } catch (err) {
       progressText.textContent = "Error: " + err.message;
       return;
@@ -174,7 +330,7 @@
     if (sfWorker) sfWorker.terminate();
 
     if (results.length === 0) {
-      progressText.textContent = "No rare moves found. Try a different PGN or lower settings.";
+      progressText.textContent = "No novelties found. Try selecting a larger time period or adjust settings.";
       return;
     }
 
@@ -183,11 +339,10 @@
 
   stopBtn.addEventListener("click", () => {
     abortCtrl.aborted = true;
-    // Show whatever we found so far
     if (results.length > 0) {
       initViewer();
     } else {
-      progressText.textContent = "Stopped. No rare moves found yet.";
+      showState(uploadSec);
     }
   });
 
@@ -351,12 +506,21 @@
   // Navigation via keyboard only (arrow keys handled below)
 
   document.addEventListener("keydown", (e) => {
-    // Only handle keys when viewer is active
+    const tag = document.activeElement.tagName;
+    if (tag === "INPUT" || tag === "TEXTAREA") return;
+
+    const filterOpen = document.getElementById("acc-opening")?.classList.contains("open");
+    if (filterOpen && uploadSec.classList.contains("active")) {
+      if (e.key === "ArrowLeft")  { e.preventDefault(); filterGoTo(filterPly - 1); }
+      if (e.key === "ArrowRight") { e.preventDefault(); filterGoTo(filterPly + 1); }
+      return;
+    }
+
     if (!viewerSec.classList.contains("active")) return;
     if (e.key === "ArrowRight") { e.preventDefault(); nextMove(); }
-    if (e.key === "ArrowLeft") { e.preventDefault(); prevMove(); }
-    if (e.key === "ArrowDown") { e.preventDefault(); nextGame(); }
-    if (e.key === "ArrowUp") { e.preventDefault(); prevGame(); }
+    if (e.key === "ArrowLeft")  { e.preventDefault(); prevMove(); }
+    if (e.key === "ArrowDown")  { e.preventDefault(); nextGame(); }
+    if (e.key === "ArrowUp")    { e.preventDefault(); prevGame(); }
   });
 
   // ── Beforeunload warning during analysis ─────────────────────
@@ -372,5 +536,27 @@
     const saved = localStorage.getItem("nh_lichess_token");
     if (saved) $("#lichess-token").value = saved;
   } catch { }
+
+  // ── Tooltip portal ────────────────────────────────────────────
+  document.querySelectorAll(".tooltip-anchor").forEach(anchor => {
+    let tip = null;
+    anchor.addEventListener("mouseenter", () => {
+      const text = anchor.getAttribute("data-tooltip");
+      if (!text) return;
+      tip = document.createElement("div");
+      tip.className = "tooltip-portal";
+      tip.textContent = text;
+      document.body.appendChild(tip);
+      const r = anchor.getBoundingClientRect();
+      const tr = tip.getBoundingClientRect();
+      let top = r.bottom + 7;
+      let left = r.left;
+      if (left + tr.width > window.innerWidth - 10) left = window.innerWidth - tr.width - 10;
+      if (top + tr.height > window.innerHeight - 10) top = r.top - tr.height - 7;
+      tip.style.top = top + "px";
+      tip.style.left = left + "px";
+    });
+    anchor.addEventListener("mouseleave", () => { tip?.remove(); tip = null; });
+  });
 
 })();
