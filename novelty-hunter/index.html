@@ -52,38 +52,8 @@
         <div class="settings-panel">
 
           <div class="accordion-section">
-            <button class="accordion-btn" data-target="acc-time">
-              1) Select time period
-              <span class="accordion-arrow">▾</span>
-            </button>
-            <div class="accordion-content" id="acc-time">
-              <div class="accordion-inner">
-                <p class="accordion-section-label">Find novelties in:</p>
-                <div class="source-options">
-                  <button class="source-btn active" data-source="lastweek">Last Week</button>
-                  <button class="source-btn" data-source="lastmonth">Last Month</button>
-                  <button class="source-btn" data-source="custom">Custom PGN</button>
-                </div>
-                <div id="dropzone" class="dropzone" hidden>
-                  <div class="dropzone-content">
-                    <svg class="dropzone-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                      <polyline points="17 8 12 3 7 8" < />>
-                      <line x1="12" y1="3" x2="12" y2="15" />
-                    </svg>
-                    <p>Drop a <strong>.pgn</strong> file here</p>
-                    <p class="dropzone-hint">or <label class="file-label" for="file-input">browse</label></p>
-                  </div>
-                  <input type="file" id="file-input" accept=".pgn" hidden />
-                  <p id="file-name" class="file-name"></p>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div class="accordion-section">
             <button class="accordion-btn" data-target="acc-opening">
-              2) Select opening <span class="accordion-optional"></span>
+              1) Select opening <span class="accordion-optional"></span>
               <span class="accordion-arrow">▾</span>
             </button>
             <div class="accordion-content" id="acc-opening">
@@ -101,6 +71,44 @@
                       <button type="button" id="filter-clear" class="btn btn--ghost filter-clear-btn">Reset</button>
                     </div>
                   </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="accordion-section">
+            <button class="accordion-btn" data-target="acc-time">
+              2) Select time period
+              <span class="accordion-arrow">▾</span>
+            </button>
+            <div class="accordion-content" id="acc-time">
+              <div class="accordion-inner">
+                <p class="accordion-section-label">Find novelties in last:</p>
+                <div class="period-control">
+                  <div class="stepper">
+                    <button type="button" class="stepper-btn" id="period-dec" disabled>&#8722;</button>
+                    <span class="stepper-value" id="period-value">1</span>
+                    <button type="button" class="stepper-btn" id="period-inc">&#43;</button>
+                  </div>
+                  <div class="unit-options">
+                    <button type="button" class="unit-btn active" data-unit="weeks">Weeks</button>
+                    <button type="button" class="unit-btn" data-unit="months">Months</button>
+                  </div>
+                  <span class="period-or">or drop a</span>
+                  <button type="button" class="source-btn" id="custom-pgn-btn">Custom PGN</button>
+                </div>
+                <div id="dropzone" class="dropzone" hidden>
+                  <div class="dropzone-content">
+                    <svg class="dropzone-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                      <polyline points="17 8 12 3 7 8" < />>
+                      <line x1="12" y1="3" x2="12" y2="15" />
+                    </svg>
+                    <p>Drop a <strong>.pgn</strong> file here</p>
+                    <p class="dropzone-hint">or <label class="file-label" for="file-input">browse</label></p>
+                  </div>
+                  <input type="file" id="file-input" accept=".pgn" hidden />
+                  <p id="file-name" class="file-name"></p>
                 </div>
               </div>
             </div>
@@ -130,16 +138,23 @@
 
           <div class="accordion-section">
             <button class="accordion-btn" data-target="acc-token">
-              4) Paste Lichess API key
+              4) Connect Lichess account
               <span class="accordion-arrow">▾</span>
             </button>
             <div class="accordion-content" id="acc-token">
               <div class="accordion-inner">
-                <label for="lichess-token">Lichess API Token <span class="tooltip-anchor"
-                    data-tooltip="Used to query the Lichess Masters database without overloading it.&#10;Your token goes directly to Lichess. Novelty Hunter has no server and never sees it.">?</span></label>
-                <input type="password" id="lichess-token" placeholder="lip_..." autocomplete="off" />
-                <p class="toggle-hint">Get one at <a href="https://lichess.org/account/oauth/token" target="_blank"
-                    class="link-accent">lichess.org/account/oauth/token</a> (leave default settings).</p>
+                <div id="auth-logged-out">
+                  <p class="accordion-section-label">Required to query the Lichess Masters database.</p>
+                  <button type="button" id="lichess-login-btn" class="btn btn--primary lichess-login-btn">
+                    Login with Lichess
+                  </button>
+                </div>
+                <div id="auth-logged-in" hidden>
+                  <p class="auth-connected">
+                    <span class="auth-check">&#10003;</span> Connected as <strong id="auth-username-display"></strong>
+                  </p>
+                  <button type="button" id="lichess-logout-btn" class="btn btn--ghost auth-logout-btn">Logout</button>
+                </div>
               </div>
             </div>
           </div>
@@ -153,20 +168,24 @@
               <div class="accordion-inner">
                 <div class="settings-grid">
                   <div class="setting">
-                    <label for="min-elo">Minimum Elo</label>
-                    <input type="number" id="min-elo" value="2400" min="0" max="3000" step="50" />
+                    <label for="min-elo-white">Minimum White Elo</label>
+                    <input type="number" id="min-elo-white" value="2400" min="0" max="3000" step="50" />
                   </div>
                   <div class="setting">
+                    <label for="min-elo-black">Minimum Black Elo</label>
+                    <input type="number" id="min-elo-black" value="2400" min="0" max="3000" step="50" />
+                  </div>
+                  <div class="setting" style="flex-grow: 0">
                     <div class="toggle-row">
                       <input type="checkbox" id="stockfish-toggle" />
                       <label for="stockfish-toggle">Stockfish evaluation</label>
                       <span class="tooltip-anchor"
-                        data-tooltip="Using the engine provides slower but more interesting scoring.">?</span>
+                        data-tooltip="Using the engine provides more interesting scoring but is significantly slower.">?</span>
                     </div>
                     <input type="number" id="sf-depth" value="30" min="1" max="30" step="1" class="depth-input"
-                      title="Engine depth" style="width:100%" disabled />
+                      title="Engine depth" disabled />
                   </div>
-                  <div class="setting setting-full" style="margin-top: 0.5rem;">
+                  <div class="setting setting-full">
                     <label>Exclude tournaments containing word (up to 6 words):</label>
                     <div class="exclude-keywords" id="exclude-keywords">
                       <input type="text" class="exclude-keyword" placeholder="e.g. Titled" />
@@ -186,19 +205,25 @@
           <a class="link-accent" href="https://github.com/lichess-org/chessground" target="_blank">Chessground</a>,
           <a class="link-accent" href="https://github.com/jhlywa/chess.js" target="_blank">chess.js</a>,
           <a class="link-accent" href="https://github.com/official-stockfish/Stockfish" target="_blank">Stockfish
-            18</a>, and the
-          <a class="link-accent" href="https://lichess.org/api#tag/Opening-Explorer" target="_blank">Lichess Masters
-            database</a>.
-          Made with ♥ <br>
+            18</a>,
+          <a class="link-accent" href="https://theweekinchess.com/twic" target="_blank">TWIC</a>, and the goat of open-sources:
+          <a class="link-accent" href="https://lichess.org" target="_blank">Lichess</a>.
+          <br>
           You can check out reasonings for the formulas and docs <a class="link-accent"
             href="https://github.com/JoseBarriaSantos/my_website" target="_blank">here</a>.
           </br>
+          Made with ♥
         </p>
       </div>
 
       <aside class="changelog-panel">
         <h3 class="changelog-title">Changelog</h3>
         <ul class="changelog-list">
+          <li class="changelog-entry">
+            <span class="changelog-date">2026-05-19</span>
+            <span class="changelog-text">Massive UI/UX improvement. Facilitated usage by swapping API key with Lichess Login. Other fixes and features added like game export.
+            </span>
+          </li>
           <li class="changelog-entry">
             <span class="changelog-date">2026-05-18</span>
             <span class="changelog-text">Complete UI revamp. It wasn't clear what Novelty Hunter is for. Now it is: finding opening ideas.
@@ -260,6 +285,7 @@
             <span id="move-label" class="nav-label">Start position</span>
             <span class="keyboard-hint">&larr;&rarr;</span>
           </div>
+          <button id="export-pgn-btn" class="btn btn--ghost export-pgn-btn">Export PGNs</button>
         </div>
 
         <div class="sidebar">
@@ -319,8 +345,7 @@
               <span class="info-label">
                 Efficiency Score
                 <span class="tooltip-anchor"
-                  data-tooltip="80% Δeval + 20% resultScore&#10;&#10;Δeval: Stockfish eval 5 moves later − eval after move&#10;resultScore: game result bonus/penalty&#10;&#10;Efficiency score is more meaningful with the engine on but 
-                  takes much longer to run">?</span>
+                  data-tooltip="80% Δeval + 20% resultScore&#10;&#10;Δeval: Stockfish eval 5 moves later − eval after move&#10;resultScore: game result bonus/penalty&#10;&#10;Efficiency score is more meaningful with the engine on but takes much longer to run">?</span>
               </span>
               <span id="info-efficiency-score" class="info-value"></span>
             </div>
@@ -358,6 +383,7 @@
       "js/scoring.js",
       "js/analyzer.js",
       "js/twic-fetcher.js",
+      "js/lichess-auth.js",
       "js/ui.js"
     ];
 

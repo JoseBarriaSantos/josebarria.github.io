@@ -1,5 +1,8 @@
-(function () {
+(async function () {
   "use strict";
+
+  const _cbToken = await lichessAuth.handleCallback();
+  if (_cbToken) lichessAuth.saveToken(_cbToken);
 
   // ── State ────────────────────────────────────────────────────
   let results = [];
@@ -11,7 +14,9 @@
   let chess = null; // chess.js instance for replaying positions
   let sfWorker = null;
   let abortCtrl = { aborted: false };
-  let sourceMode = "lastweek";
+  let sourceMode = "twic";
+  let periodAmount = 1;
+  let periodUnit = "weeks";
   let filterMoves = [];
   let filterPly = 0;
   let filterBoardInst = null;
@@ -28,8 +33,10 @@
   const fileInput = $("#file-input");
   const fileName = $("#file-name");
   const analyzeBtn = $("#analyze-btn");
-  const sourceBtns = document.querySelectorAll(".source-btn");
   const uploadError = $("#upload-error");
+  const authLoggedOut = $("#auth-logged-out");
+  const authLoggedIn = $("#auth-logged-in");
+  const authUsernameDisplay = $("#auth-username-display");
 
   // Analyzing
   const progressFill = $("#progress-fill");
@@ -49,16 +56,73 @@
     section.classList.add("active");
   }
 
-  // ── Source selector ──────────────────────────────────────────
-  sourceBtns.forEach(btn => {
+  function updateAnalyzeBtn() {
+    const hasToken = !!lichessAuth.getToken();
+    analyzeBtn.disabled = !hasToken || (sourceMode === "custom" && !pgnText);
+  }
+
+  async function updateAuthUI() {
+    const token = lichessAuth.getToken();
+    const loggedIn = !!token;
+    if (authLoggedOut) authLoggedOut.hidden = loggedIn;
+    if (authLoggedIn) authLoggedIn.hidden = !loggedIn;
+    if (loggedIn && authUsernameDisplay) {
+      const username = await lichessAuth.getUsername(token);
+      if (username) {
+        authUsernameDisplay.textContent = username;
+      } else {
+        lichessAuth.clearToken();
+        if (authLoggedOut) authLoggedOut.hidden = false;
+        if (authLoggedIn) authLoggedIn.hidden = true;
+      }
+    }
+    const tokenBtn = document.querySelector('[data-target="acc-token"]');
+    if (tokenBtn) tokenBtn.classList.toggle("filter-active", loggedIn);
+    updateAnalyzeBtn();
+  }
+
+  // ── Period stepper ───────────────────────────────────────────
+  function updateStepper() {
+    const max = periodUnit === "weeks" ? 4 : 12;
+    const valueEl = document.getElementById("period-value");
+    const decBtn = document.getElementById("period-dec");
+    const incBtn = document.getElementById("period-inc");
+    if (valueEl) valueEl.textContent = periodAmount;
+    if (decBtn) decBtn.disabled = periodAmount <= 1;
+    if (incBtn) incBtn.disabled = periodAmount >= max;
+  }
+
+  document.getElementById("period-dec")?.addEventListener("click", () => {
+    if (periodAmount > 1) { periodAmount--; updateStepper(); saveSettings(); }
+  });
+
+  document.getElementById("period-inc")?.addEventListener("click", () => {
+    const max = periodUnit === "weeks" ? 4 : 12;
+    if (periodAmount < max) { periodAmount++; updateStepper(); saveSettings(); }
+  });
+
+  document.querySelectorAll(".unit-btn").forEach(btn => {
     btn.addEventListener("click", () => {
-      sourceBtns.forEach(b => b.classList.remove("active"));
+      document.querySelectorAll(".unit-btn").forEach(b => b.classList.remove("active"));
       btn.classList.add("active");
-      sourceMode = btn.dataset.source;
-      dropzone.hidden = sourceMode !== "custom";
-      analyzeBtn.disabled = sourceMode === "custom" && !pgnText;
-      if (uploadError) { uploadError.hidden = true; uploadError.textContent = ""; }
+      periodUnit = btn.dataset.unit;
+      const max = periodUnit === "weeks" ? 4 : 12;
+      periodAmount = Math.min(periodAmount, max);
+      updateStepper();
+      sourceMode = "twic";
+      dropzone.hidden = true;
+      document.getElementById("custom-pgn-btn")?.classList.remove("active");
+      updateAnalyzeBtn();
+      saveSettings();
     });
+  });
+
+  document.getElementById("custom-pgn-btn")?.addEventListener("click", () => {
+    document.getElementById("custom-pgn-btn").classList.add("active");
+    sourceMode = "custom";
+    dropzone.hidden = false;
+    updateAnalyzeBtn();
+    if (uploadError) { uploadError.hidden = true; uploadError.textContent = ""; }
   });
 
   // ── Upload state logic ───────────────────────────────────────
@@ -68,7 +132,7 @@
     const reader = new FileReader();
     reader.onload = () => {
       pgnText = reader.result;
-      if (sourceMode === "custom") analyzeBtn.disabled = false;
+      if (sourceMode === "custom") updateAnalyzeBtn();
     };
     reader.readAsText(file);
   }
@@ -78,7 +142,14 @@
   const sfDepthInput = $("#sf-depth");
   stockfishToggle.addEventListener("change", () => {
     sfDepthInput.disabled = !stockfishToggle.checked;
+    saveSettings();
   });
+  sfDepthInput.addEventListener("change", () => saveSettings());
+
+  $("#min-elo-white")?.addEventListener("change", () => saveSettings());
+  $("#min-elo-black")?.addEventListener("change", () => saveSettings());
+  document.getElementById("color-white")?.addEventListener("change", () => saveSettings());
+  document.getElementById("color-black")?.addEventListener("change", () => saveSettings());
 
   // Dynamic keyword inputs
   const keywordsContainer = $("#exclude-keywords");
@@ -95,18 +166,55 @@
     keywordsContainer.appendChild(input);
     input.focus();
   });
+  keywordsContainer.addEventListener("input", () => saveSettings());
+
+  // Auth handlers
+  $("#lichess-login-btn")?.addEventListener("click", () => lichessAuth.startLogin());
+  $("#lichess-logout-btn")?.addEventListener("click", async () => {
+    lichessAuth.clearToken();
+    await updateAuthUI();
+  });
 
   // Accordion sections
+  function openAccordion(btn, content, onDone) {
+    btn.classList.add("open");
+    content.style.height = content.scrollHeight + "px";
+    content.addEventListener("transitionend", () => {
+      if (btn.classList.contains("open")) {
+        content.style.height = "auto";
+        onDone?.();
+      }
+    }, { once: true });
+  }
+
+  function closeAccordion(btn, content) {
+    btn.classList.remove("open");
+    content.style.height = content.scrollHeight + "px";
+    content.offsetHeight; // force reflow so browser registers the explicit height
+    content.style.height = "0";
+  }
+
   document.querySelectorAll(".accordion-btn").forEach(btn => {
     btn.addEventListener("click", () => {
       const content = document.getElementById(btn.dataset.target);
       if (!content) return;
       const opening = !btn.classList.contains("open");
-      btn.classList.toggle("open", opening);
-      content.classList.toggle("open", opening);
-      if (opening && btn.dataset.target === "acc-opening") {
-        initFilterBoard();
-        filterRefresh();
+
+      let hadOpen = false;
+      document.querySelectorAll(".accordion-btn").forEach(other => {
+        if (other === btn || !other.classList.contains("open")) return;
+        hadOpen = true;
+        closeAccordion(other, document.getElementById(other.dataset.target));
+      });
+
+      if (opening) {
+        setTimeout(() => {
+          openAccordion(btn, content, () => {
+            if (btn.dataset.target === "acc-opening") { initFilterBoard(); filterRefresh(); }
+          });
+        }, hadOpen ? 50 : 0);
+      } else {
+        closeAccordion(btn, content);
       }
     });
   });
@@ -161,6 +269,7 @@
 
     const toggleBtn = document.querySelector('[data-target="acc-opening"]');
     if (toggleBtn) toggleBtn.classList.toggle("filter-active", filterPly > 0);
+    saveSettings();
   }
 
   function filterGoTo(ply) {
@@ -224,35 +333,38 @@
 
   // ── Analyze ──────────────────────────────────────────────────
   analyzeBtn.addEventListener("click", async () => {
-    const token = $("#lichess-token").value.trim();
+    const token = lichessAuth.getToken();
     if (!token) {
-      alert("Please enter your Lichess API token.");
+      alert("Please connect your Lichess account first.");
       return;
     }
 
-    const minElo = parseInt($("#min-elo").value, 10) || 2400;
+    const minEloWhite = parseInt($("#min-elo-white").value, 10) || 2400;
+    const minEloBlack = parseInt($("#min-elo-black").value, 10) || 2400;
     const target = Infinity;
     const useSf = $("#stockfish-toggle").checked;
     const sfDepth = parseInt($("#sf-depth").value, 10) || 10;
     const excludeKeywords = Array.from(document.querySelectorAll(".exclude-keyword"))
       .map(el => el.value.trim().toLowerCase())
       .filter(k => k.length > 0);
-    try { localStorage.setItem("nh_lichess_token", token); } catch { }
 
     showState(analyzeSec);
     progressFill.style.width = "0%";
     progressText.textContent = "Preparing...";
     foundMoves.innerHTML = "";
     abortCtrl = { aborted: false };
+    const thisRun = abortCtrl;
     results = [];
 
     // Step 1: Get PGN text (from TWIC or uploaded file)
     let pgnToAnalyze = pgnText;
 
     if (sourceMode !== "custom") {
+      const issueCount = periodUnit === "weeks" ? periodAmount : periodAmount * 4;
       progressText.textContent = "Fetching games from TWIC...";
       try {
-        pgnToAnalyze = await fetchTwicGames(sourceMode, (msg, pct) => {
+        pgnToAnalyze = await fetchTwicGames(issueCount, (msg, pct) => {
+          if (thisRun.aborted) return;
           progressText.textContent = msg;
           if (pct !== undefined) progressFill.style.width = pct + "%";
         });
@@ -271,38 +383,22 @@
     progressFill.style.width = "0%";
     progressText.textContent = "Preparing analysis...";
 
-    // Step 2: Init Stockfish if requested
+    // Phase 1: Find novelties (no engine)
     sfWorker = null;
-    if (useSf) {
-      progressText.textContent = "Loading Stockfish engine...";
-      sfWorker = createStockfishWorker();
-      try {
-        await sfWorker.init();
-      } catch (err) {
-        console.error("[App] Stockfish initialization failed:", err);
-        progressText.textContent = "Warning: Engine analysis unavailable. Continuing without Stockfish...";
-        await sleep(2000);
-        sfWorker = null;
-      }
-    }
-
-    // Step 3: Run analysis
     let analysisStartTime = null;
     const onProgress = (done, total, currentResults) => {
+      if (thisRun.aborted) return;
       if (done === 0) analysisStartTime = performance.now();
       const pct = total > 0 ? Math.round((done / total) * 100) : 0;
       progressFill.style.width = pct + "%";
-
       let eta = "";
       if (done > 2 && analysisStartTime) {
         const elapsed = (performance.now() - analysisStartTime) / 1000;
         const remaining = Math.round((total - done) * elapsed / done);
         eta = remaining < 60 ? ` (~${remaining}s left)` : ` (~${Math.ceil(remaining / 60)} min left)`;
       }
-
       progressText.textContent =
         `Analyzing game ${done} / ${total}...  Found ${currentResults.length} rare move${currentResults.length !== 1 ? "s" : ""}${eta}`;
-
       foundMoves.innerHTML = "";
       for (const r of currentResults) {
         const div = document.createElement("div");
@@ -314,11 +410,13 @@
     };
 
     const filterFen = filterPly > 0 ? filterGetFen() : null;
+    const filterCenterPly = filterPly;
     const colorWhite = document.getElementById("color-white")?.checked ?? true;
     const colorBlack = document.getElementById("color-black")?.checked ?? true;
     const colorFilter = { white: colorWhite || (!colorWhite && !colorBlack), black: colorBlack || (!colorWhite && !colorBlack) };
     try {
-      results = await analyzeGames(pgnToAnalyze, { minElo, target, token, sfDepth, excludeKeywords, filterFen, colorFilter }, onProgress, abortCtrl, sfWorker, (msg, pct) => {
+      results = await analyzeGames(pgnToAnalyze, { minEloWhite, minEloBlack, target, token, sfDepth, excludeKeywords, filterFen, filterCenterPly, colorFilter }, onProgress, abortCtrl, null, (msg, pct) => {
+        if (thisRun.aborted) return;
         progressText.textContent = msg;
         if (pct !== undefined) progressFill.style.width = pct + "%";
       });
@@ -327,11 +425,69 @@
       return;
     }
 
-    if (sfWorker) sfWorker.terminate();
-
     if (results.length === 0) {
       progressText.textContent = "No novelties found. Try selecting a larger time period or adjust settings.";
       return;
+    }
+
+    // Phase 2: Stockfish evaluation
+    if (useSf && !thisRun.aborted) {
+      progressFill.style.width = "0%";
+      progressText.textContent = "Loading Stockfish engine...";
+      sfWorker = createStockfishWorker();
+      try { await sfWorker.init(); }
+      catch (err) {
+        console.error("[App] Stockfish init failed:", err);
+        sfWorker = null;
+        progressText.textContent = "Engine unavailable. Showing results without evaluation.";
+        await sleep(1500);
+      }
+
+      if (sfWorker && !thisRun.aborted) {
+        progressFill.style.width = "0%";
+        foundMoves.innerHTML = "";
+        results.forEach((r, idx) => {
+          const div = document.createElement("div");
+          div.className = "found-move-item";
+          div.id = "sf-item-" + idx;
+          const prefix = r.white_to_move ? "" : "...";
+          div.textContent = `${r.white} vs ${r.black} — ${r.move_number}.${prefix}${r.move} (interest: ${r.interest_score.toFixed(2)})`;
+          foundMoves.appendChild(div);
+        });
+
+        // Estimate: N novelties * 2 evals * ~8s each (Stockfish-18-lite depth 30 in browser)
+        const estSecs = results.length * 2 * 8;
+        const estStr = estSecs < 60 ? `~${estSecs}s` : `~${Math.ceil(estSecs / 60)} min`;
+        progressText.textContent = `Evaluating ${results.length} novelties with Stockfish (est. ${estStr})`;
+
+        const sfPhaseStart = performance.now();
+        try {
+          await evaluateWithStockfish(results, sfWorker, sfDepth, (i, total, r, done) => {
+            if (thisRun.aborted) return;
+            progressFill.style.width = Math.round((i / total) * 100) + "%";
+            if (done) {
+              const div = document.getElementById("sf-item-" + (i - 1));
+              if (div) {
+                const prefix = r.white_to_move ? "" : "...";
+                div.textContent = `${r.white} vs ${r.black} — ${r.move_number}.${prefix}${r.move} (interest: ${r.interest_score.toFixed(2)})`;
+                div.style.borderLeftColor = scoreToColor(r.efficiency_score);
+              }
+            } else {
+              const prefix = r.white_to_move ? "" : "...";
+              let eta = "";
+              if (i > 0) {
+                const elapsed = (performance.now() - sfPhaseStart) / 1000;
+                const remaining = Math.round((total - i) * elapsed / i);
+                eta = remaining < 60 ? ` (~${remaining}s left)` : ` (~${Math.ceil(remaining / 60)} min left)`;
+              }
+              progressText.textContent = `Analyzing ${r.white} vs ${r.black} — Move ${r.move_number}.${prefix}${r.move}${eta}`;
+            }
+          }, abortCtrl);
+        } catch (err) {
+          console.error("[SF Phase 2]", err);
+        }
+        sfWorker.terminate();
+      }
     }
 
     initViewer();
@@ -523,6 +679,17 @@
     if (e.key === "ArrowUp")    { e.preventDefault(); prevGame(); }
   });
 
+  document.getElementById("export-pgn-btn")?.addEventListener("click", () => {
+    const pgns = results.map(r => r.game_pgn).filter(Boolean).join("\n\n");
+    const blob = new Blob([pgns], { type: "application/x-chess-pgn" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "novelty-hunter-games.pgn";
+    a.click();
+    URL.revokeObjectURL(url);
+  });
+
   // ── Beforeunload warning during analysis ─────────────────────
   window.addEventListener("beforeunload", (e) => {
     if (analyzeSec.classList.contains("active")) {
@@ -531,11 +698,93 @@
     }
   });
 
-  // ── Restore saved token ────────────────────────────────────────
-  try {
-    const saved = localStorage.getItem("nh_lichess_token");
-    if (saved) $("#lichess-token").value = saved;
-  } catch { }
+  // ── Settings persistence ──────────────────────────────────────
+  function saveSettings() {
+    try {
+      const kws = Array.from(document.querySelectorAll(".exclude-keyword"))
+        .map(el => el.value.trim()).filter(k => k.length > 0);
+      localStorage.setItem("nh_settings", JSON.stringify({
+        periodAmount, periodUnit,
+        minEloWhite: $("#min-elo-white")?.value,
+        minEloBlack: $("#min-elo-black")?.value,
+        sfEnabled: $("#stockfish-toggle")?.checked,
+        sfDepth: $("#sf-depth")?.value,
+        excludeKeywords: kws,
+        filterMoves, filterPly,
+        colorWhite: document.getElementById("color-white")?.checked,
+        colorBlack: document.getElementById("color-black")?.checked,
+      }));
+    } catch {}
+  }
+
+  function loadSettings() {
+    try {
+      const s = JSON.parse(localStorage.getItem("nh_settings") || "null");
+      if (!s) return;
+
+      if (s.periodAmount) periodAmount = Math.max(1, parseInt(s.periodAmount));
+      if (s.periodUnit === "weeks" || s.periodUnit === "months") {
+        periodUnit = s.periodUnit;
+        document.querySelectorAll(".unit-btn").forEach(b =>
+          b.classList.toggle("active", b.dataset.unit === periodUnit));
+      }
+      updateStepper();
+
+      if (s.minEloWhite) { const el = $("#min-elo-white"); if (el) el.value = s.minEloWhite; }
+      if (s.minEloBlack) { const el = $("#min-elo-black"); if (el) el.value = s.minEloBlack; }
+
+      if (s.sfEnabled !== undefined) {
+        const tog = $("#stockfish-toggle");
+        if (tog) { tog.checked = s.sfEnabled; sfDepthInput.disabled = !s.sfEnabled; }
+      }
+      if (s.sfDepth) { const el = $("#sf-depth"); if (el) el.value = s.sfDepth; }
+
+      if (s.excludeKeywords?.length) {
+        const container = $("#exclude-keywords");
+        if (container) {
+          const inputs = container.querySelectorAll(".exclude-keyword");
+          s.excludeKeywords.forEach((kw, i) => {
+            if (i === 0 && inputs[0]) {
+              inputs[0].value = kw;
+            } else {
+              const inp = document.createElement("input");
+              inp.type = "text"; inp.className = "exclude-keyword"; inp.value = kw;
+              container.appendChild(inp);
+            }
+          });
+        }
+      }
+
+      if (s.filterMoves?.length) {
+        filterMoves = s.filterMoves;
+        filterPly = Math.min(s.filterPly ?? filterMoves.length, filterMoves.length);
+        const openBtn = document.querySelector('[data-target="acc-opening"]');
+        if (openBtn) openBtn.classList.add("filter-active");
+      }
+
+      const cw = document.getElementById("color-white");
+      const cb = document.getElementById("color-black");
+      if (cw && s.colorWhite !== undefined) cw.checked = s.colorWhite;
+      if (cb && s.colorBlack !== undefined) cb.checked = s.colorBlack;
+    } catch {}
+  }
+
+  loadSettings();
+  updateAuthUI();
+
+  // ── Score colour (red → yellow → green) ──────────────────────
+  function scoreToColor(score) {
+    const s = Math.max(-1, Math.min(1, score));
+    let r, g;
+    if (s <= 0) {
+      const t = s + 1; // 0 at -1, 1 at 0
+      r = 255; g = Math.round(t * 210);
+    } else {
+      const t = s; // 0 at 0, 1 at +1
+      r = Math.round(255 * (1 - t)); g = Math.round(210 + t * 45);
+    }
+    return `rgb(${r},${g},0)`;
+  }
 
   // ── Tooltip portal ────────────────────────────────────────────
   document.querySelectorAll(".tooltip-anchor").forEach(anchor => {

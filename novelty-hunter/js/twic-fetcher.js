@@ -26,50 +26,27 @@ function _twicZipUrl(issueNum) {
   return "https://theweekinchess.com/zips/twic" + issueNum + "g.zip";
 }
 
-async function _probeIssueExists(issueNum) {
-  try {
-    const resp = await fetch(_twicZipUrl(issueNum), { method: "HEAD" });
-    return resp.ok;
-  } catch (err) {
-    if (err instanceof TypeError) throw new TwicCorsError();
-    throw err;
-  }
-}
 
 async function _findLatestIssue(onStatus) {
   try {
     const raw = localStorage.getItem("nh_twic_latest");
     if (raw) {
       const { issue, ts } = JSON.parse(raw);
-      if (issue && Date.now() - ts < 6 * 60 * 60 * 1000) return issue;
+      if (issue && Date.now() - ts < 24 * 60 * 60 * 1000) return issue;
     }
   } catch {}
 
-  let n = _estimateCurrentIssue();
   onStatus?.("Checking current TWIC issue...", 0);
 
-  let exists = await _probeIssueExists(n);
-
-  if (exists) {
-    for (let i = 0; i < 20; i++) {
-      if (!await _probeIssueExists(n + 1)) break;
-      n++;
-    }
-  } else {
-    let found = false;
-    for (let i = 0; i < 60; i++) {
-      n--;
-      onStatus?.("Checking TWIC issue #" + n + "...", 0);
-      if (await _probeIssueExists(n)) { found = true; break; }
-    }
-    if (!found) throw new Error("Could not determine the current TWIC issue number.");
-  }
+  const r = await fetch(TWIC_PROXY + "/latest");
+  if (!r.ok) throw new Error("Could not get latest TWIC issue from proxy.");
+  const { issue: latest } = await r.json();
 
   try {
-    localStorage.setItem("nh_twic_latest", JSON.stringify({ issue: n, ts: Date.now() }));
+    localStorage.setItem("nh_twic_latest", JSON.stringify({ issue: latest, ts: Date.now() }));
   } catch {}
 
-  return n;
+  return latest;
 }
 
 // startPct and rangePct define this issue's slice of the 0-100 progress bar.
@@ -129,12 +106,9 @@ async function _downloadIssue(issueNum, onStatus, startPct, rangePct) {
   return pgn;
 }
 
-async function fetchTwicGames(mode, onStatus) {
+async function fetchTwicGames(issueCount, onStatus) {
   const latest = await _findLatestIssue(onStatus);
-
-  const issueNums = mode === "lastmonth"
-    ? [latest, latest - 1, latest - 2, latest - 3]
-    : [latest];
+  const issueNums = Array.from({ length: issueCount }, (_, i) => latest - i);
 
   // Download sequentially so progress is clean and linear
   const rangePerIssue = Math.floor(100 / issueNums.length);

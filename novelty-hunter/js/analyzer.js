@@ -252,8 +252,9 @@ async function getStockfishScore(moves, noveltyPly, whiteToMove, sfWorker, depth
  * @param {object|null} sfWorker  Stockfish worker wrapper (or null)
  * @returns {Promise<Array>} sorted results array
  */
-function gameContainsPosition(pgn, fenPrefix) {
-  // Lightweight check — strips headers/comments/variations inline, no full parsePgnMoves
+function gameContainsPosition(pgn, fenPrefix, centerPly = 20) {
+  const startPly = Math.max(0, centerPly - 20);
+  const endPly = centerPly + 20;
   const movetext = pgn
     .replace(/\[.*?\]\s*/gm, "")
     .replace(/\{[^}]*\}/g, "")
@@ -262,16 +263,16 @@ function gameContainsPosition(pgn, fenPrefix) {
   const chess = new Chess();
   let ply = 0;
   for (const token of movetext.split(/\s+/)) {
-    if (ply >= 40) break;
+    if (ply > endPly) break;
     if (!token || /^\d+\.+/.test(token) || token === "1-0" || token === "0-1" || token === "1/2-1/2" || token === "*") continue;
-    if (chess.fen().split(" ").slice(0, 2).join(" ") === fenPrefix) return true;
+    if (ply >= startPly && chess.fen().split(" ").slice(0, 2).join(" ") === fenPrefix) return true;
     if (chess.move(token, { sloppy: true })) ply++;
   }
-  return chess.fen().split(" ").slice(0, 2).join(" ") === fenPrefix;
+  return ply >= startPly && chess.fen().split(" ").slice(0, 2).join(" ") === fenPrefix;
 }
 
 async function analyzeGames(pgnText, options, onProgress, abortCtrl, sfWorker, onStatus) {
-  const { minElo = 2400, target = 1, token = "", sfDepth = 10, excludeKeywords = [], concurrency = 12, filterFen = null, colorFilter = null } = options;
+  const { minEloWhite = 2400, minEloBlack = 2400, target = 1, token = "", sfDepth = 10, excludeKeywords = [], concurrency = 12, filterFen = null, filterCenterPly = 20, colorFilter = null } = options;
 
   onStatus?.("Parsing games...");
   await sleep(0);
@@ -282,7 +283,7 @@ async function analyzeGames(pgnText, options, onProgress, abortCtrl, sfWorker, o
   let eligibleGames = gamePgns.filter(pgn => {
     const wElo = parseInt(pgnHeader(pgn, "WhiteElo") || "0", 10);
     const bElo = parseInt(pgnHeader(pgn, "BlackElo") || "0", 10);
-    if (wElo < minElo || bElo < minElo) return false;
+    if (wElo < minEloWhite || bElo < minEloBlack) return false;
     if (excludeKeywords.length > 0) {
       const event = (pgnHeader(pgn, "Event") || "").toLowerCase();
       if (excludeKeywords.some(k => event.includes(k))) return false;
@@ -308,7 +309,7 @@ async function analyzeGames(pgnText, options, onProgress, abortCtrl, sfWorker, o
         eta = remaining < 60 ? ` (~${remaining}s left)` : ` (~${Math.ceil(remaining / 60)} min left)`;
       }
       onStatus?.("Filtering by opening... " + i + "/" + eligibleGames.length + eta, pct);
-      if (gameContainsPosition(eligibleGames[i], filterFen)) filtered.push(eligibleGames[i]);
+      if (gameContainsPosition(eligibleGames[i], filterFen, filterCenterPly)) filtered.push(eligibleGames[i]);
     }
     eligibleGames = filtered;
   }
@@ -371,10 +372,7 @@ async function analyzeGames(pgnText, options, onProgress, abortCtrl, sfWorker, o
       if (isRare(moveSan, movesData, 0.05, 10, 100)) {
         const noveltyPly = mi;
 
-        let sfResult = { bonus: null, cpAfter: null, cpLater: null };
-        if (sfWorker) {
-          sfResult = await getStockfishScore(history, noveltyPly, whiteToMove, sfWorker, sfDepth);
-        }
+        const sfResult = { bonus: null, cpAfter: null, cpLater: null };
 
         const info = getAllMoveInfo(
           moveSan, movesData, fullMoveNumber,
@@ -438,6 +436,30 @@ async function analyzeGames(pgnText, options, onProgress, abortCtrl, sfWorker, o
   const msPerGame = (elapsedMs / totalGames).toFixed(0);
   // console.log(`[Timing] Total: ${elapsedMin} min | Per game: ${msPerGame} ms | Games: ${totalGames}`);
   // console.log(`[Cache] Hits: ${cacheHits}, Misses: ${cacheMisses}, Hit rate: ${(cacheHits / (cacheHits + cacheMisses) * 100).toFixed(1)}%`);
+
+  results.sort((a, b) => b.interest_score - a.interest_score);
+  return results;
+}
+
+async function evaluateWithStockfish(results, sfWorker, sfDepth, onProgress, abortCtrl) {
+  for (let i = 0; i < results.length; i++) {
+    if (abortCtrl.aborted) break;
+    const r = results[i];
+    onProgress(i, results.length, r, false);
+
+    const sfResult = await getStockfishScore(r.moves, r.novelty_ply, r.white_to_move, sfWorker, sfDepth);
+    const bonus = sfResult && typeof sfResult === "object" ? sfResult.bonus : null;
+
+    if (bonus !== null && bonus !== undefined) {
+      r.stockfish_score = bonus;
+      r.eval_after = sfResult.cpAfter;
+      r.eval_later = sfResult.cpLater;
+      r.efficiency_score = computeEfficiencyScore(r.result, r.white_to_move, bonus);
+      r.interest_score = computeInterestScore(r.rarity_score, r.efficiency_score, r.early_nov_score);
+    }
+
+    onProgress(i + 1, results.length, r, true);
+  }
 
   results.sort((a, b) => b.interest_score - a.interest_score);
   return results;
