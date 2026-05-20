@@ -20,6 +20,7 @@
   let filterMoves = [];
   let filterPly = 0;
   let filterBoardInst = null;
+  let sfRunEnabled = false;
 
   // ── DOM refs ─────────────────────────────────────────────────
   const $ = (sel) => document.querySelector(sel);
@@ -355,6 +356,7 @@
     abortCtrl = { aborted: false };
     const thisRun = abortCtrl;
     results = [];
+    sfRunEnabled = false;
 
     // Step 1: Get PGN text (from TWIC or uploaded file)
     let pgnToAnalyze = pgnText;
@@ -395,7 +397,7 @@
       if (done > 2 && analysisStartTime) {
         const elapsed = (performance.now() - analysisStartTime) / 1000;
         const remaining = Math.round((total - done) * elapsed / done);
-        eta = remaining < 60 ? ` (~${remaining}s left)` : ` (~${Math.ceil(remaining / 60)} min left)`;
+        eta = remaining < 60 ? ` ~${remaining}s left` : ` ~${Math.ceil(remaining / 60)} min left`;
       }
       progressText.textContent =
         `Analyzing game ${done} / ${total}...  Found ${currentResults.length} rare move${currentResults.length !== 1 ? "s" : ""}${eta}`;
@@ -444,6 +446,7 @@
       }
 
       if (sfWorker && !thisRun.aborted) {
+        sfRunEnabled = true;
         progressFill.style.width = "0%";
         foundMoves.innerHTML = "";
         results.forEach((r, idx) => {
@@ -455,38 +458,69 @@
           foundMoves.appendChild(div);
         });
 
-        // Estimate: N novelties * 2 evals * ~8s each (Stockfish-18-lite depth 30 in browser)
-        const estSecs = results.length * 2 * 8;
-        const estStr = estSecs < 60 ? `~${estSecs}s` : `~${Math.ceil(estSecs / 60)} min`;
-        progressText.textContent = `Evaluating ${results.length} novelties with Stockfish (est. ${estStr})`;
-
+        // ~0.5 * 1.15^depth seconds per position (single-threaded WASM browser benchmark)
+        const secsPerPos = Math.max(1, Math.round(0.7 * Math.pow(1.15, sfDepth)));
+        let countdownSecs = results.length * 2 * secsPerPos;
+        let sfLabel = "";
         const sfPhaseStart = performance.now();
+
+        function fmtEta(s) {
+          s = Math.max(0, Math.round(s));
+          return s < 60 ? `~${s}s left` : `~${Math.ceil(s / 60)} min left`;
+        }
+        function updateSfText() {
+          progressText.textContent = sfLabel
+            ? `${sfLabel} ${fmtEta(countdownSecs)}`
+            : `Evaluating ${results.length} novelties with Stockfish ${fmtEta(countdownSecs)}`;
+        }
+
+        updateSfText();
+        const countdownInterval = setInterval(() => {
+          if (thisRun.aborted) { clearInterval(countdownInterval); return; }
+          countdownSecs = Math.max(0, countdownSecs - 1);
+          updateSfText();
+        }, 1000);
+
         try {
-          await evaluateWithStockfish(results, sfWorker, sfDepth, (i, total, r, done) => {
-            if (thisRun.aborted) return;
-            progressFill.style.width = Math.round((i / total) * 100) + "%";
-            if (done) {
-              const div = document.getElementById("sf-item-" + (i - 1));
-              if (div) {
-                const prefix = r.white_to_move ? "" : "...";
-                div.textContent = `${r.white} vs ${r.black} — ${r.move_number}.${prefix}${r.move} (interest: ${r.interest_score.toFixed(2)})`;
-                div.style.borderLeftColor = scoreToColor(r.efficiency_score);
+          await evaluateWithStockfish(results, sfWorker, sfDepth,
+            (i, total, r, done) => {
+              if (!thisRun.aborted) {
+                progressFill.style.width = Math.round((i / total) * 100) + "%";
+                if (i > 0) {
+                  const elapsed = (performance.now() - sfPhaseStart) / 1000;
+                  countdownSecs = Math.round((total - i) * (elapsed / i));
+                }
               }
-            } else {
-              const prefix = r.white_to_move ? "" : "...";
-              let eta = "";
-              if (i > 0) {
-                const elapsed = (performance.now() - sfPhaseStart) / 1000;
-                const remaining = Math.round((total - i) * elapsed / i);
-                eta = remaining < 60 ? ` (~${remaining}s left)` : ` (~${Math.ceil(remaining / 60)} min left)`;
+              if (done) {
+                const completedIdx = i / 2 - 1;
+                const div = document.getElementById("sf-item-" + completedIdx);
+                if (div) {
+                  const prefix = r.white_to_move ? "" : "...";
+                  div.textContent = `${r.white} vs ${r.black} — ${r.move_number}.${prefix}${r.move} (interest: ${r.interest_score.toFixed(2)})`;
+                  div.style.borderLeftColor = scoreToColor(r.efficiency_score);
+                }
+                if (viewerSec.classList.contains("active") && completedIdx === gameIdx) {
+                  $("#info-efficiency-score").textContent = r.efficiency_score.toFixed(2);
+                  $("#info-interest-score").textContent = r.interest_score.toFixed(2);
+                  const warn = document.getElementById("sf-pending-warn");
+                  if (warn) warn.hidden = true;
+                }
               }
-              progressText.textContent = `Analyzing ${r.white} vs ${r.black} — Move ${r.move_number}.${prefix}${r.move}${eta}`;
-            }
-          }, abortCtrl);
+            },
+            (r, posLabel, depth) => {
+              if (thisRun.aborted) return;
+              sfLabel = `Analyzing ${r.white} vs ${r.black}, position after ${posLabel} (depth ${depth}/${sfDepth})`;
+              updateSfText();
+            },
+            abortCtrl);
         } catch (err) {
           console.error("[SF Phase 2]", err);
         }
+        clearInterval(countdownInterval);
         sfWorker.terminate();
+        sfRunEnabled = false;
+        const warn = document.getElementById("sf-pending-warn");
+        if (warn) warn.hidden = true;
       }
     }
 
@@ -579,6 +613,8 @@
     $("#info-efficiency-score").textContent = r.efficiency_score.toFixed(2);
     $("#info-early-nov-score").textContent = r.early_nov_score.toFixed(2);
     $("#info-interest-score").textContent = r.interest_score.toFixed(2);
+    const sfWarn = document.getElementById("sf-pending-warn");
+    if (sfWarn) sfWarn.hidden = !(sfRunEnabled && r.eval_after === null);
 
     updateBoard();
   }

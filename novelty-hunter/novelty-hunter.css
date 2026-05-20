@@ -610,6 +610,14 @@ a { color: inherit; text-decoration: none; }
   text-shadow: 0 0 10px rgba(0,229,255,0.25);
 }
 
+.sf-pending-warn {
+  color: #FFD700;
+  font-size: 1.2rem;
+  cursor: default;
+  margin-left: 0.3rem;
+  vertical-align: middle;
+}
+
 .sidebar-divider {
   border: none;
   border-top: 1px solid var(--stroke);

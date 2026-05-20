@@ -168,7 +168,7 @@ function sleep(ms) {
  * Evaluate a position using the Stockfish Web Worker.
  * Returns centipawn score (from white's POV) or null on failure.
  */
-async function stockfishEval(fen, depth, sfWorker) {
+async function stockfishEval(fen, depth, sfWorker, onDepth) {
   if (!sfWorker) {
     console.warn("[Stockfish] No worker provided, eval skipped");
     return null;
@@ -179,6 +179,7 @@ async function stockfishEval(fen, depth, sfWorker) {
       resolve(null);
     }, 120000);
 
+    sfWorker.onDepth = onDepth || null;
     sfWorker.onResult = (cp) => {
       clearTimeout(timeout);
       if (cp === null) {
@@ -197,7 +198,7 @@ async function stockfishEval(fen, depth, sfWorker) {
   });
 }
 
-async function getStockfishScore(moves, noveltyPly, whiteToMove, sfWorker, depth = 10) {
+async function getStockfishScore(moves, noveltyPly, whiteToMove, sfWorker, depth = 10, afterLabel, laterLabel, onDepthUpdate, onAfterEvalDone) {
   if (!sfWorker) {
     return { bonus: 0.0, cpAfter: null, cpLater: null };
   }
@@ -221,8 +222,11 @@ async function getStockfishScore(moves, noveltyPly, whiteToMove, sfWorker, depth
       chessLater.move(moves[i], { sloppy: true });
     }
 
-    const cpAfter = await stockfishEval(chessAfter.fen(), depth, sfWorker);
-    const cpLater = await stockfishEval(chessLater.fen(), depth, sfWorker);
+    const cpAfter = await stockfishEval(chessAfter.fen(), depth, sfWorker,
+      onDepthUpdate && afterLabel ? (d) => onDepthUpdate(afterLabel, d) : null);
+    onAfterEvalDone?.();
+    const cpLater = await stockfishEval(chessLater.fen(), depth, sfWorker,
+      onDepthUpdate && laterLabel ? (d) => onDepthUpdate(laterLabel, d) : null);
 
     if (cpAfter === null || cpLater === null) {
       console.warn("[Analysis] One of the evaluations failed, bonus = 0. After:", cpAfter, "Later:", cpLater);
@@ -306,7 +310,7 @@ async function analyzeGames(pgnText, options, onProgress, abortCtrl, sfWorker, o
       if (i > 5) {
         const elapsed = (performance.now() - scanStart) / 1000;
         const remaining = Math.round((eligibleGames.length - i) * elapsed / i);
-        eta = remaining < 60 ? ` (~${remaining}s left)` : ` (~${Math.ceil(remaining / 60)} min left)`;
+        eta = remaining < 60 ? ` ~${remaining}s left` : ` ~${Math.ceil(remaining / 60)} min left`;
       }
       onStatus?.("Filtering by opening... " + i + "/" + eligibleGames.length + eta, pct);
       if (gameContainsPosition(eligibleGames[i], filterFen, filterCenterPly)) filtered.push(eligibleGames[i]);
@@ -441,13 +445,33 @@ async function analyzeGames(pgnText, options, onProgress, abortCtrl, sfWorker, o
   return results;
 }
 
-async function evaluateWithStockfish(results, sfWorker, sfDepth, onProgress, abortCtrl) {
+async function evaluateWithStockfish(results, sfWorker, sfDepth, onProgress, onDepthUpdate, abortCtrl) {
+  const total = results.length * 2;
   for (let i = 0; i < results.length; i++) {
     if (abortCtrl.aborted) break;
     const r = results[i];
-    onProgress(i, results.length, r, false);
+    onProgress(i * 2, total, r, false);
 
-    const sfResult = await getStockfishScore(r.moves, r.novelty_ply, r.white_to_move, sfWorker, sfDepth);
+    // Compute notation labels for the two positions being evaluated
+    const nPly = r.novelty_ply;
+    const afterPly = nPly + 1;
+    const laterPly = Math.min(afterPly + 10, r.moves.length);
+    const nMoveNum = Math.floor(nPly / 2) + 1;
+    const nIsWhite = nPly % 2 === 0;
+    const afterLabel = `${nMoveNum}.${nIsWhite ? "" : "..."}${r.moves[nPly]}`;
+    const lIdx = laterPly - 1;
+    const lMoveNum = Math.floor(lIdx / 2) + 1;
+    const lIsWhite = lIdx % 2 === 0;
+    const laterLabel = lIdx >= 0 && lIdx < r.moves.length
+      ? `${lMoveNum}.${lIsWhite ? "" : "..."}${r.moves[lIdx]}`
+      : afterLabel;
+
+    const sfResult = await getStockfishScore(
+      r.moves, r.novelty_ply, r.white_to_move, sfWorker, sfDepth,
+      afterLabel, laterLabel,
+      onDepthUpdate ? (label, d) => onDepthUpdate(r, label, d) : null,
+      () => onProgress(i * 2 + 1, total, r, false)
+    );
     const bonus = sfResult && typeof sfResult === "object" ? sfResult.bonus : null;
 
     if (bonus !== null && bonus !== undefined) {
@@ -458,7 +482,7 @@ async function evaluateWithStockfish(results, sfWorker, sfDepth, onProgress, abo
       r.interest_score = computeInterestScore(r.rarity_score, r.efficiency_score, r.early_nov_score);
     }
 
-    onProgress(i + 1, results.length, r, true);
+    onProgress(i * 2 + 2, total, r, true);
   }
 
   results.sort((a, b) => b.interest_score - a.interest_score);
