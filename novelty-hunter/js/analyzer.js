@@ -256,9 +256,9 @@ async function getStockfishScore(moves, noveltyPly, whiteToMove, sfWorker, depth
  * @param {object|null} sfWorker  Stockfish worker wrapper (or null)
  * @returns {Promise<Array>} sorted results array
  */
-function gameContainsPosition(pgn, fenPrefix, centerPly = 20) {
-  const startPly = Math.max(0, centerPly - 20);
-  const endPly = centerPly + 20;
+function gameContainsPosition(pgn, fenPrefix, centerPly = 10) {
+  const startPly = centerPly;
+  const endPly = centerPly + 10;
   const movetext = pgn
     .replace(/\[.*?\]\s*/gm, "")
     .replace(/\{[^}]*\}/g, "")

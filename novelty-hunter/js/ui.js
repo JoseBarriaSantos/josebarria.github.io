@@ -447,6 +447,7 @@
 
       if (sfWorker && !thisRun.aborted) {
         sfRunEnabled = true;
+        stopBtn.textContent = "Continue";
         progressFill.style.width = "0%";
         foundMoves.innerHTML = "";
         results.forEach((r, idx) => {
@@ -519,6 +520,7 @@
         clearInterval(countdownInterval);
         sfWorker.terminate();
         sfRunEnabled = false;
+        stopBtn.textContent = "Stop";
         const warn = document.getElementById("sf-pending-warn");
         if (warn) warn.hidden = true;
       }
