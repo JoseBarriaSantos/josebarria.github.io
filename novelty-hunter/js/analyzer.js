@@ -485,6 +485,5 @@ async function evaluateWithStockfish(results, sfWorker, sfDepth, onProgress, onD
     onProgress(i * 2 + 2, total, r, true);
   }
 
-  results.sort((a, b) => b.interest_score - a.interest_score);
   return results;
 }

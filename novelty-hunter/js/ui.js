@@ -20,7 +20,7 @@
   let filterMoves = [];
   let filterPly = 0;
   let filterBoardInst = null;
-  let sfRunEnabled = false;
+  let sfRunning = false;
 
   // ── DOM refs ─────────────────────────────────────────────────
   const $ = (sel) => document.querySelector(sel);
@@ -356,7 +356,7 @@
     abortCtrl = { aborted: false };
     const thisRun = abortCtrl;
     results = [];
-    sfRunEnabled = false;
+    sfRunning = false;
 
     // Step 1: Get PGN text (from TWIC or uploaded file)
     let pgnToAnalyze = pgnText;
@@ -446,7 +446,8 @@
       }
 
       if (sfWorker && !thisRun.aborted) {
-        sfRunEnabled = true;
+        sfRunning = true;
+        results.forEach(r => { r.sf_pending = true; });
         stopBtn.textContent = "Continue";
         progressFill.style.width = "0%";
         foundMoves.innerHTML = "";
@@ -494,6 +495,7 @@
               }
               if (done) {
                 const completedIdx = i / 2 - 1;
+                r.sf_pending = false;
                 const div = document.getElementById("sf-item-" + completedIdx);
                 if (div) {
                   const prefix = r.white_to_move ? "" : "...";
@@ -519,22 +521,31 @@
         }
         clearInterval(countdownInterval);
         sfWorker.terminate();
-        sfRunEnabled = false;
         stopBtn.textContent = "Stop";
-        const warn = document.getElementById("sf-pending-warn");
-        if (warn) warn.hidden = true;
       }
     }
 
-    initViewer();
+    if (!viewerSec.classList.contains("active")) {
+      results.sort((a, b) => b.interest_score - a.interest_score);
+      initViewer();
+    }
   });
 
   stopBtn.addEventListener("click", () => {
-    abortCtrl.aborted = true;
-    if (results.length > 0) {
-      initViewer();
+    if (sfRunning && analyzeSec.classList.contains("active")) {
+      // "Continue" during SF phase — show viewer immediately, keep SF running in background
+      if (results.length > 0) {
+        initViewer();
+      } else {
+        showState(uploadSec);
+      }
     } else {
-      showState(uploadSec);
+      abortCtrl.aborted = true;
+      if (results.length > 0) {
+        initViewer();
+      } else {
+        showState(uploadSec);
+      }
     }
   });
 
@@ -616,7 +627,7 @@
     $("#info-early-nov-score").textContent = r.early_nov_score.toFixed(2);
     $("#info-interest-score").textContent = r.interest_score.toFixed(2);
     const sfWarn = document.getElementById("sf-pending-warn");
-    if (sfWarn) sfWarn.hidden = !(sfRunEnabled && r.eval_after === null);
+    if (sfWarn) sfWarn.hidden = !(sfRunning && r.sf_pending);
 
     updateBoard();
   }
