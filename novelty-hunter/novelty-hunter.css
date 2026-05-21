@@ -610,6 +610,21 @@ a { color: inherit; text-decoration: none; }
   text-shadow: 0 0 10px rgba(0,229,255,0.25);
 }
 
+.sf-continue-hint {
+  font-family: 'Inter', sans-serif;
+  font-style: italic;
+  font-size: 0.8rem;
+  color: var(--text-dim, #888);
+  margin-top: 0.75rem;
+  line-height: 1.5;
+  animation: fadeIn 0.6s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
 .sf-pending-warn {
   color: #FFD700;
   font-size: 1.2rem;

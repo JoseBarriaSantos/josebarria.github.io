@@ -449,6 +449,8 @@
         sfRunning = true;
         results.forEach(r => { r.sf_pending = true; });
         stopBtn.textContent = "Continue";
+        const sfHint = document.getElementById("sf-continue-hint");
+        const sfHintTimer = setTimeout(() => { if (sfHint) sfHint.hidden = false; }, 3000);
         progressFill.style.width = "0%";
         foundMoves.innerHTML = "";
         results.forEach((r, idx) => {
@@ -520,6 +522,8 @@
           console.error("[SF Phase 2]", err);
         }
         clearInterval(countdownInterval);
+        clearTimeout(sfHintTimer);
+        if (sfHint) sfHint.hidden = true;
         sfWorker.terminate();
         stopBtn.textContent = "Stop";
       }
@@ -534,6 +538,8 @@
   stopBtn.addEventListener("click", () => {
     if (sfRunning && analyzeSec.classList.contains("active")) {
       // "Continue" during SF phase — show viewer immediately, keep SF running in background
+      const hint = document.getElementById("sf-continue-hint");
+      if (hint) hint.hidden = true;
       if (results.length > 0) {
         initViewer();
       } else {
