@@ -176,13 +176,13 @@
                   </div>
                   <div class="setting" style="flex-grow: 0">
                     <div class="toggle-row">
-                      <input type="checkbox" id="stockfish-toggle" />
+                      <input type="checkbox" id="stockfish-toggle" checked />
                       <label for="stockfish-toggle">Stockfish evaluation</label>
                       <span class="tooltip-anchor"
                         data-tooltip="Using the engine provides more interesting scoring but is significantly slower.">?</span>
                     </div>
-                    <input type="number" id="sf-depth" value="30" min="1" max="30" step="1" class="depth-input"
-                      title="Engine depth" disabled />
+                    <input type="number" id="sf-depth" value="25" min="1" max="50" step="1" class="depth-input"
+                      title="Engine depth" />
                   </div>
                   <div class="setting setting-full">
                     <label>Exclude tournaments containing word (up to 6 words):</label>
