@@ -607,6 +607,8 @@
     // Start right after the novelty so the highlight shows immediately
     currentPly = Math.min(noveltyPly + 1, moves.length);
 
+    if (board) board.set({ orientation: r.white_to_move ? "white" : "black" });
+
     gameLabel.textContent = `Game ${idx + 1} / ${results.length}`;
 
     // Sidebar
@@ -732,6 +734,7 @@
     if (e.key === "ArrowLeft")  { e.preventDefault(); prevMove(); }
     if (e.key === "ArrowDown")  { e.preventDefault(); nextGame(); }
     if (e.key === "ArrowUp")    { e.preventDefault(); prevGame(); }
+    if (e.key === "f" || e.key === "F") { e.preventDefault(); if (board) board.toggleOrientation(); }
   });
 
   document.getElementById("export-pgn-btn")?.addEventListener("click", () => {

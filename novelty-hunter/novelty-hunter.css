@@ -570,6 +570,7 @@ a { color: inherit; text-decoration: none; }
 .nav-indicator {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 0.35rem;
   padding: 0.35rem 0;
 }

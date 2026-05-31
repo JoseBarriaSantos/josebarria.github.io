@@ -301,7 +301,7 @@ async function analyzeGames(pgnText, options, onProgress, abortCtrl, sfWorker, o
     let lastYield = performance.now();
     for (let i = 0; i < eligibleGames.length; i++) {
       if (abortCtrl.aborted) break;
-      if (performance.now() - lastYield > 16) {
+      if (performance.now() - lastYield > (document.hidden ? 200 : 16)) {
         await sleep(0);
         lastYield = performance.now();
       }
