@@ -10,7 +10,8 @@ function createStockfishWorker() {
   const readyPromise = new Promise(r => { readyResolve = r; });
 
   const wrapper = {
-    onResult: null,  // Set by caller before each evaluate()
+    onResult: null,
+    onDepth: null,
     loading: false,
     loaded: false,
 
@@ -39,6 +40,11 @@ function createStockfishWorker() {
             if (readyResolve) { readyResolve(); readyResolve = null; }
           }
 
+          if (line.startsWith("info")) {
+            const dm = line.match(/\bdepth (\d+)/);
+            if (dm && wrapper.onDepth) wrapper.onDepth(parseInt(dm[1], 10));
+          }
+
           // Parse "info depth N ... score cp X" or "score mate X"
           if (line.includes(" score cp ")) {
             const cpMatch = line.match(/score cp (-?\d+)/);
@@ -56,6 +62,7 @@ function createStockfishWorker() {
 
           // When bestmove arrives, deliver the result
           if (line.startsWith("bestmove") && wrapper.onResult) {
+            wrapper.onDepth = null;
             wrapper.onResult(wrapper._lastCp ?? null);
           }
         };

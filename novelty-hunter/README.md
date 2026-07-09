@@ -8,11 +8,13 @@ The idea for this tool was thought of by me, José Bárria. The scoring function
 
 ## How it works
 
-1. You upload a `.pgn` file containing chess games.
-2. First the games are filtered by the desired elo you choose, then it replays moves 5–15 and queries the [Lichess Masters database](https://lichess.org/api#tag/Opening-Explorer) for each position.
-3. A move is considered **rare** if gamesAfterRareMove/gamesAfterMostPopularMove < 5% from that position and has fewer than 500 follow-up games in the database. You can see more details about these things later.
-4. The engine (stockfish) evaluates the position immediately after the rare move and again 5 moves later to gauge how the evaluation evolved.
-5. All rare moves are scored and sorted by **Final Interest Score**, finally being displayed on Lichess' awesome Chessground Board.
+1. Select the time period of where you're looking for novelties (played last week, played last month) or drop a pgn file with games.
+2. Select the opening where you want to search for novelties.
+3. Select the color of who played the novelty.
+4. First the games are filtered (by position, elo, etc), then it replays moves 5–15 and queries the [Lichess Masters database](https://lichess.org/api#tag/Opening-Explorer) for each position.
+5. A move is considered **rare** if gamesAfterRareMove/gamesAfterMostPopularMove < 5% from that position and has fewer than 500 follow-up games in the database. You can see more details about these things later.
+6. The engine (stockfish) evaluates the position immediately after the rare move and again 5 moves later to gauge how the evaluation evolved.
+7. All rare moves are scored and sorted by **Final Interest Score**, finally being displayed on Lichess' awesome Chessground Board.
 
 ---
 

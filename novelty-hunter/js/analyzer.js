@@ -137,8 +137,11 @@ async function fetchLichessMoves(fen, token) {
 
   let delay = 10;
   for (let attempt = 0; attempt < 4; attempt++) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 15000);
     try {
-      const resp = await fetch(url, { headers });
+      const resp = await fetch(url, { headers, signal: controller.signal });
+      clearTimeout(timer);
       if (resp.status === 429) {
         await sleep(delay);
         delay *= 2;
@@ -150,6 +153,7 @@ async function fetchLichessMoves(fen, token) {
       }
       return await resp.json();
     } catch {
+      clearTimeout(timer);
       return null;
     }
   }
@@ -164,7 +168,7 @@ function sleep(ms) {
  * Evaluate a position using the Stockfish Web Worker.
  * Returns centipawn score (from white's POV) or null on failure.
  */
-async function stockfishEval(fen, depth, sfWorker) {
+async function stockfishEval(fen, depth, sfWorker, onDepth) {
   if (!sfWorker) {
     console.warn("[Stockfish] No worker provided, eval skipped");
     return null;
@@ -175,6 +179,7 @@ async function stockfishEval(fen, depth, sfWorker) {
       resolve(null);
     }, 120000);
 
+    sfWorker.onDepth = onDepth || null;
     sfWorker.onResult = (cp) => {
       clearTimeout(timeout);
       if (cp === null) {
@@ -193,7 +198,7 @@ async function stockfishEval(fen, depth, sfWorker) {
   });
 }
 
-async function getStockfishScore(moves, noveltyPly, whiteToMove, sfWorker, depth = 10) {
+async function getStockfishScore(moves, noveltyPly, whiteToMove, sfWorker, depth = 10, afterLabel, laterLabel, onDepthUpdate, onAfterEvalDone) {
   if (!sfWorker) {
     return { bonus: 0.0, cpAfter: null, cpLater: null };
   }
@@ -217,8 +222,11 @@ async function getStockfishScore(moves, noveltyPly, whiteToMove, sfWorker, depth
       chessLater.move(moves[i], { sloppy: true });
     }
 
-    const cpAfter = await stockfishEval(chessAfter.fen(), depth, sfWorker);
-    const cpLater = await stockfishEval(chessLater.fen(), depth, sfWorker);
+    const cpAfter = await stockfishEval(chessAfter.fen(), depth, sfWorker,
+      onDepthUpdate && afterLabel ? (d) => onDepthUpdate(afterLabel, d) : null);
+    onAfterEvalDone?.();
+    const cpLater = await stockfishEval(chessLater.fen(), depth, sfWorker,
+      onDepthUpdate && laterLabel ? (d) => onDepthUpdate(laterLabel, d) : null);
 
     if (cpAfter === null || cpLater === null) {
       console.warn("[Analysis] One of the evaluations failed, bonus = 0. After:", cpAfter, "Later:", cpLater);
@@ -248,16 +256,38 @@ async function getStockfishScore(moves, noveltyPly, whiteToMove, sfWorker, depth
  * @param {object|null} sfWorker  Stockfish worker wrapper (or null)
  * @returns {Promise<Array>} sorted results array
  */
-async function analyzeGames(pgnText, options, onProgress, abortCtrl, sfWorker) {
-  const { minElo = 2400, target = 1, token = "", sfDepth = 10, excludeKeywords = [], concurrency = 12 } = options;
-  const gamePgns = splitPgn(pgnText);
-  const fenCache = new Map();
-  const results = [];
+function gameContainsPosition(pgn, fenPrefix, centerPly = 10) {
+  const startPly = centerPly;
+  const endPly = centerPly + 10;
+  const movetext = pgn
+    .replace(/\[.*?\]\s*/gm, "")
+    .replace(/\{[^}]*\}/g, "")
+    .replace(/\([^()]*\)/g, "").replace(/\([^()]*\)/g, "")
+    .replace(/\$\d+/g, "");
+  const chess = new Chess();
+  let ply = 0;
+  for (const token of movetext.split(/\s+/)) {
+    if (ply > endPly) break;
+    if (!token || /^\d+\.+/.test(token) || token === "1-0" || token === "0-1" || token === "1/2-1/2" || token === "*") continue;
+    if (ply >= startPly && chess.fen().split(" ").slice(0, 2).join(" ") === fenPrefix) return true;
+    if (chess.move(token, { sloppy: true })) ply++;
+  }
+  return ply >= startPly && chess.fen().split(" ").slice(0, 2).join(" ") === fenPrefix;
+}
 
-  const eligibleGames = gamePgns.filter(pgn => {
+async function analyzeGames(pgnText, options, onProgress, abortCtrl, sfWorker, onStatus) {
+  const { minEloWhite = 2400, minEloBlack = 2400, target = 1, token = "", sfDepth = 10, excludeKeywords = [], concurrency = 12, filterFen = null, filterCenterPly = 20, colorFilter = null } = options;
+
+  onStatus?.("Parsing games...");
+  await sleep(0);
+  const gamePgns = splitPgn(pgnText);
+
+  onStatus?.("Filtering by Elo...");
+  await sleep(0);
+  let eligibleGames = gamePgns.filter(pgn => {
     const wElo = parseInt(pgnHeader(pgn, "WhiteElo") || "0", 10);
     const bElo = parseInt(pgnHeader(pgn, "BlackElo") || "0", 10);
-    if (wElo < minElo || bElo < minElo) return false;
+    if (wElo < minEloWhite || bElo < minEloBlack) return false;
     if (excludeKeywords.length > 0) {
       const event = (pgnHeader(pgn, "Event") || "").toLowerCase();
       if (excludeKeywords.some(k => event.includes(k))) return false;
@@ -265,7 +295,32 @@ async function analyzeGames(pgnText, options, onProgress, abortCtrl, sfWorker) {
     return true;
   });
 
+  if (filterFen) {
+    const filtered = [];
+    const scanStart = performance.now();
+    let lastYield = performance.now();
+    for (let i = 0; i < eligibleGames.length; i++) {
+      if (abortCtrl.aborted) break;
+      if (performance.now() - lastYield > (document.hidden ? 200 : 16)) {
+        await sleep(0);
+        lastYield = performance.now();
+      }
+      const pct = eligibleGames.length > 0 ? Math.round((i / eligibleGames.length) * 100) : 0;
+      let eta = "";
+      if (i > 5) {
+        const elapsed = (performance.now() - scanStart) / 1000;
+        const remaining = Math.round((eligibleGames.length - i) * elapsed / i);
+        eta = remaining < 60 ? ` ~${remaining}s left` : ` ~${Math.ceil(remaining / 60)} min left`;
+      }
+      onStatus?.("Filtering by opening... " + i + "/" + eligibleGames.length + eta, pct);
+      if (gameContainsPosition(eligibleGames[i], filterFen, filterCenterPly)) filtered.push(eligibleGames[i]);
+    }
+    eligibleGames = filtered;
+  }
+
   const totalGames = eligibleGames.length;
+  const fenCache = new Map();
+  const results = [];
   let eligibleDone = 0;
   let skippedParse = 0;
   let cacheHits = 0;
@@ -297,6 +352,12 @@ async function analyzeGames(pgnText, options, onProgress, abortCtrl, sfWorker) {
       }
 
       const fen = chess.fen();
+      const whiteToMove = chess.turn() === "w";
+
+      if (colorFilter && ((whiteToMove && !colorFilter.white) || (!whiteToMove && !colorFilter.black))) {
+        chess.move(history[mi], { sloppy: true });
+        continue;
+      }
 
       if (!fenCache.has(fen)) {
         cacheMisses++;
@@ -311,15 +372,11 @@ async function analyzeGames(pgnText, options, onProgress, abortCtrl, sfWorker) {
       }
 
       const moveSan = history[mi];
-      const whiteToMove = chess.turn() === "w";
 
       if (isRare(moveSan, movesData, 0.05, 10, 100)) {
         const noveltyPly = mi;
 
-        let sfResult = { bonus: null, cpAfter: null, cpLater: null };
-        if (sfWorker) {
-          sfResult = await getStockfishScore(history, noveltyPly, whiteToMove, sfWorker, sfDepth);
-        }
+        const sfResult = { bonus: null, cpAfter: null, cpLater: null };
 
         const info = getAllMoveInfo(
           moveSan, movesData, fullMoveNumber,
@@ -361,6 +418,8 @@ async function analyzeGames(pgnText, options, onProgress, abortCtrl, sfWorker) {
     return null;
   }
 
+  onProgress(0, totalGames, []);
+
   const startTime = performance.now();
   let gameIndex = 0;
 
@@ -383,5 +442,48 @@ async function analyzeGames(pgnText, options, onProgress, abortCtrl, sfWorker) {
   // console.log(`[Cache] Hits: ${cacheHits}, Misses: ${cacheMisses}, Hit rate: ${(cacheHits / (cacheHits + cacheMisses) * 100).toFixed(1)}%`);
 
   results.sort((a, b) => b.interest_score - a.interest_score);
+  return results;
+}
+
+async function evaluateWithStockfish(results, sfWorker, sfDepth, onProgress, onDepthUpdate, abortCtrl) {
+  const total = results.length * 2;
+  for (let i = 0; i < results.length; i++) {
+    if (abortCtrl.aborted) break;
+    const r = results[i];
+    onProgress(i * 2, total, r, false);
+
+    // Compute notation labels for the two positions being evaluated
+    const nPly = r.novelty_ply;
+    const afterPly = nPly + 1;
+    const laterPly = Math.min(afterPly + 10, r.moves.length);
+    const nMoveNum = Math.floor(nPly / 2) + 1;
+    const nIsWhite = nPly % 2 === 0;
+    const afterLabel = `${nMoveNum}.${nIsWhite ? "" : "..."}${r.moves[nPly]}`;
+    const lIdx = laterPly - 1;
+    const lMoveNum = Math.floor(lIdx / 2) + 1;
+    const lIsWhite = lIdx % 2 === 0;
+    const laterLabel = lIdx >= 0 && lIdx < r.moves.length
+      ? `${lMoveNum}.${lIsWhite ? "" : "..."}${r.moves[lIdx]}`
+      : afterLabel;
+
+    const sfResult = await getStockfishScore(
+      r.moves, r.novelty_ply, r.white_to_move, sfWorker, sfDepth,
+      afterLabel, laterLabel,
+      onDepthUpdate ? (label, d) => onDepthUpdate(r, label, d) : null,
+      () => onProgress(i * 2 + 1, total, r, false)
+    );
+    const bonus = sfResult && typeof sfResult === "object" ? sfResult.bonus : null;
+
+    if (bonus !== null && bonus !== undefined) {
+      r.stockfish_score = bonus;
+      r.eval_after = sfResult.cpAfter;
+      r.eval_later = sfResult.cpLater;
+      r.efficiency_score = computeEfficiencyScore(r.result, r.white_to_move, bonus);
+      r.interest_score = computeInterestScore(r.rarity_score, r.efficiency_score, r.early_nov_score);
+    }
+
+    onProgress(i * 2 + 2, total, r, true);
+  }
+
   return results;
 }
