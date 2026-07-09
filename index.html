@@ -12,13 +12,14 @@
 
     <link rel="icon" type="image/jpeg" href="images/website_icon.jpg" />
     <link rel="stylesheet" href="styles.css" />
+
+    <!-- Hide animated elements before first paint (no flash). Removed if JS/Motion is unavailable. -->
+    <script>document.documentElement.classList.add("anim");</script>
   </head>
 
   <body>
-    <!-- Ambient neon background accents -->
-    <div class="ambient" aria-hidden="true">
-      <div class="grid"></div>
-    </div>
+    <!-- Blueprint grid shader — global page background (revealed below the hero) -->
+    <canvas id="blueprint-grid" class="page-bg" aria-hidden="true"></canvas>
 
     <header class="header">
       <div class="header__inner">
@@ -28,40 +29,45 @@
         </a>
 
         <nav class="nav" aria-label="Primary">
-          <a class="nav__link" href="#about">About me</a>
-          <a class="nav__link" href="#career">My Career</a>
-          <a class="nav__link" href="#contact">Contact</a>
-          <a class="nav__link nav__link--accent" href="novelty-hunter/">Novelty Hunter <span class="badge-new">New!</span></a>
+          <a class="nav__link" href="#portfolio">Portfolio</a>
+          <a class="nav__link" href="#chess">Chess</a>
         </nav>
       </div>
     </header>
 
     <main class="main">
-      <!-- HOME -->
-      <!-- <section id="home" class="section section--hero reveal">
-        <div class="container">
-          <p class="eyebrow">SOFTWARE ENGINEERING / CHESS</p>
-          <h1 class="title">
-            Hi, my name is <span class="neon">José Bárria</span>.
-            <br />
-            I am a Software Engineer trying to achieve the <span class="neon neon--alt">Grandmaster Title</span> in <span class="neon">chess</span>.
-          </h1>
+      <!-- HOME / HERO -->
+      <section id="home" class="hero">
+        <canvas id="hero-shader" class="hero__canvas" aria-hidden="true"></canvas>
+        <div class="hero__overlay">
+          <div class="hero__frame">
+            <h1 class="hero__title">
+              José Bárria
+            </h1>
+            <p class="hero__lead">
+              Born to do frontend, forced to do backend.
+            </p>
 
-          <p class="lead">
-            Welcome to my website.
-          </p>
-
-          <div class="cta">
-            <a class="btn btn--primary" href="#about">Profile</a>
-            <a class="btn btn--ghost" href= "#contact">Contact</a>
-          </div>
-
-          <div class="hint">
-            <span class="hint__dot"></span>
-            <span class="hint__text">Scroll for more</span>
+            <div class="hero__cta">
+              <a class="liquid-btn" href="#portfolio"><span>Portfolio</span></a>
+              <a class="liquid-btn" href="#chess"><span>Chess</span></a>
+            </div>
           </div>
         </div>
-      </section> -->
+      </section>
+
+      <!-- SVG filter powering the liquid-glass button distortion -->
+      <svg class="glass-filter" aria-hidden="true" focusable="false">
+        <defs>
+          <filter id="container-glass" x="0%" y="0%" width="100%" height="100%" color-interpolation-filters="sRGB">
+            <feTurbulence type="fractalNoise" baseFrequency="0.05 0.05" numOctaves="1" seed="1" result="turbulence" />
+            <feGaussianBlur in="turbulence" stdDeviation="2" result="blurredNoise" />
+            <feDisplacementMap in="SourceGraphic" in2="blurredNoise" scale="70" xChannelSelector="R" yChannelSelector="B" result="displaced" />
+            <feGaussianBlur in="displaced" stdDeviation="4" result="finalBlur" />
+            <feComposite in="finalBlur" in2="finalBlur" operator="over" />
+          </filter>
+        </defs>
+      </svg>
 
       <!-- ABOUT -->
       <section id="about" class="section">
@@ -70,70 +76,46 @@
           <div class="about__content">
             <div class="about__text">
               <p class="section__text">
-                Hello! My name is José Bárria. I am 22-year-old Software Engineer with a strong passion for chess. <br/>
-                I have been playing chess since I was 4 years old and started competing in chess tournaments at 10,
-                having played in countless tournaments ever since. There have been many memorable moments throughout
-                my journey, and now, 13 years later, I am finishing my Msc in Software Engineering and Computer Science
-                at Instituto Superior Técnico - Lisbon, while trying to reach the highest chess honor possible - 
-                the Grandmaster title. <br/>
-                About 6 years ago, around the time of the pandemic, I also started teaching chess online. I've had quite
-                some teaching experience already, having taught lots of players, including national champions.
+                Hello! My name is José Bárria. I am a 22-year-old Software Engineer with a strong passion for chess.
+                I am finishing my MSc in Software Engineering and Computer Science at Instituto Superior Técnico - Lisbon. <br/>
+                Being an obsessive learner, I love sports, learning new languages, and stuff like that. I currently
+                speak Portuguese, English and Spanish fluently, and am looking to expand that in the future!
               </p>
-
-              <div class="progress-container">
-                <span class="progress-status-centered">Current: 2374 Elo</span>
-
-                <div class="progress-track">
-                  <div class="progress-fill" style="width: 80%;"></div>
-                  
-                  <div class="milestone-dot dot--0" data-label="0" data-info="The first rating I ever had was actually 1538. Achieved Feb 2015"></div>
-                  <div class="milestone-dot dot--2000" data-label="2000" data-info="So called expert level. Achieved Jan 2018"></div>
-                  <div class="milestone-dot dot--2300" data-label="2300 (FM)" data-info="Huge breakthrough for me. Achieved Oct 2020"></div>
-                  <div class="milestone-dot dot--2400" data-label="2400 (IM)" data-info="Took me a while. Achieved Sept 2025"></div>
-                  <div class="milestone-dot dot--2500" data-label="2500 (GM)" data-info="The highest honor in chess. Working on it!"></div>
-                </div>
-              </div>
-              <!-- <div class="cards">
-                <article class="card">
-                  <h3 class="card__title">Goal</h3>
-                  <p class="card__text">
-                    Grandmaster: I need to get
-                    <span class="tooltip">
-                      3 GM Norms
-                      <span class="tooltip__content">
-                        A GM norm is achieved by scoring a required performance rating
-                        in an international tournament against very strong opponents.
-                      </span>
-                    </span>
-                    and surpass <span class="tooltip">
-                      2500 FIDE Elo
-                      <span class="tooltip__content">
-                        FIDE Elo is a numerical rating system that rules the chess world.
-                        FIDE is the Chess International Federation.
-                      </span>
-                    </span>
-                    to achieve the title.
-                  </p>
-                </article>
-                </article>
-                <article class="card">
-                  <h3 class="card__title">Currently</h3>
-                  <p class="card__text">I am investing a lot of time and money into chess and we'll see how far I can get!</p>
-                </article>
-                <article class="card">
-                  <h3 class="card__title">Eternal Learner</h3>
-                  <p class="card__text">Being an obsessive learner, I love sports, 
-                    learning new languages, and stuff like that. I currently speak Portuguese, English and Spanish flutently
-                    and am looking to expand that in the future!
-                  </p>
-                </article>
-              </div> -->
             </div>
 
             <div class="about__image">
               <img src="./images/foto_grenke_crop.jpeg" alt="José Bárria" class="profile-img">
             </div>
 
+          </div>
+        </div>
+      </section>
+
+      <!-- CHESS -->
+      <section id="chess" class="section reveal">
+        <div class="container">
+          <h2 class="section__title">Chess</h2>
+          <p class="section__text">
+            I have been playing chess since I was 4 years old and started competing in chess tournaments at 10,
+            having played in countless tournaments ever since. There have been many memorable moments throughout
+            my journey, and now, 13 years later, I am trying to reach the highest chess honor possible -
+            the Grandmaster title. <br/>
+            About 6 years ago, around the time of the pandemic, I also started teaching chess online. I've had quite
+            some teaching experience already, having taught lots of players, including national champions.
+          </p>
+
+          <div class="progress-container">
+            <span class="progress-status-centered">Current: 2374 Elo</span>
+
+            <div class="progress-track">
+              <div class="progress-fill" style="width: 80%;"></div>
+
+              <div class="milestone-dot dot--0" data-label="0" data-info="The first rating I ever had was actually 1538. Achieved Feb 2015"></div>
+              <div class="milestone-dot dot--2000" data-label="2000" data-info="So called expert level. Achieved Jan 2018"></div>
+              <div class="milestone-dot dot--2300" data-label="2300 (FM)" data-info="Huge breakthrough for me. Achieved Oct 2020"></div>
+              <div class="milestone-dot dot--2400" data-label="2400 (IM)" data-info="Took me a while. Achieved Sept 2025"></div>
+              <div class="milestone-dot dot--2500" data-label="2500 (GM)" data-info="The highest honor in chess. Working on it!"></div>
+            </div>
           </div>
         </div>
       </section>
@@ -233,53 +215,30 @@
       </div>
       </section>
 
-      <!-- CLASSES
-      <section id="classes" class="section reveal">
+      <!-- PORTFOLIO -->
+      <section id="portfolio" class="section reveal">
         <div class="container">
-          <h2 class="section__title">Classes</h2>
+          <h2 class="section__title">Portfolio</h2>
           <p class="section__text">
-            Boilerplate: highlight relevant courses, what you learned, and what projects came out of them.
+            A selection of things I've built. This section is a work in progress — more projects coming soon.
           </p>
 
-          <div class="timeline">
-            <div class="timeline__item">
-              <div class="timeline__tag">Course</div>
-              <div class="timeline__content">
-                <h3 class="timeline__title">Course Name — Topic</h3>
-                <p class="timeline__text">Boilerplate: key topics, tools, and outcomes.</p>
-              </div>
-            </div>
+          <div class="cards">
+            <article class="card">
+              <h3 class="card__title">Novelty Hunter <span class="badge-new">New!</span></h3>
+              <p class="card__text">
+                A browser-based tool that finds rare moves played by masters, then analyzes them with Stockfish and ranks them by an interest score I designed.
+              </p>
+              <a class="btn btn--primary card__link" href="novelty-hunter/">Open project</a>
+            </article>
 
-            <div class="timeline__item">
-              <div class="timeline__tag">Course</div>
-              <div class="timeline__content">
-                <h3 class="timeline__title">Course Name — Topic</h3>
-                <p class="timeline__text">Boilerplate: projects, skills, and takeaways.</p>
-              </div>
-            </div>
+            <article class="card">
+              <h3 class="card__title">Finance Duck <span class="badge-new">New!</span></h3>
+              <p class="card__text">Easy expense tracker & budget planner. Track spending, savings & net worth. My very first app! Built with React Native & Expo Go.</p>
+              <a class="btn btn--ghost card__link" href="#">View</a>
+            </article>
 
-            <div class="timeline__item">
-              <div class="timeline__tag">Course</div>
-              <div class="timeline__content">
-                <h3 class="timeline__title">Course Name — Topic</h3>
-                <p class="timeline__text">Boilerplate: what you’re proud of and what you improved.</p>
-              </div>
-            </div>
           </div>
-        </div>
-      </section>
-      -->
-
-      <!-- NOVELTY HUNTER -->
-      <section id="novelty-hunter" class="section reveal">
-        <div class="container">
-          <h2 class="section__title">Novelty Hunter <span class="badge-new">New!</span></h2>
-          <p class="section__text">
-            Searching for novelties is some serious grunt work - going through game after game looking for something interesting takes forever.
-            So I built this. Drop in a PGN file and it scans your games against the Lichess Masters database, flags rare moves, runs them through Stockfish,
-            and ranks them by an interest score I designed. Open-source, runs in the browser, no install needed.
-          </p>
-          <a class="btn btn--primary nh-launch-btn" href="novelty-hunter/">Open Novelty Hunter</a>
         </div>
       </section>
 
@@ -320,7 +279,7 @@
 
               <label class="form__label">
                 Message
-                <textarea class="form__textarea" name="message" rows="4" placeholder="Hello, I'd like to know more about the classes..." required></textarea>
+                <textarea class="form__textarea" name="message" rows="4" placeholder="Hello, my name is..." required></textarea>
               </label>
 
               <button class="btn btn--primary" type="submit" id="contact-submit">Send</button>
@@ -338,5 +297,8 @@
     </main>
 
     <script src="script.js"></script>
+    <script type="module" src="hero.js"></script>
+    <script type="module" src="blueprint-grid.js"></script>
+    <script type="module" src="animations.js"></script>
   </body>
 </html>
