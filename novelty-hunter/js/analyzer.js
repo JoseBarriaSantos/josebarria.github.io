@@ -256,7 +256,137 @@ async function getStockfishScore(moves, noveltyPly, whiteToMove, sfWorker, depth
  * @param {object|null} sfWorker  Stockfish worker wrapper (or null)
  * @returns {Promise<Array>} sorted results array
  */
-function gameContainsPosition(pgn, fenPrefix, centerPly = 10) {
+/* ── Zobrist hashing for the opening filter ─────────────────────────
+   Hashes piece placement + side to move only (the two FEN fields the
+   filter compares), so it stays equivalent to the old string compare. */
+const ZOBRIST = (() => {
+  // xorshift32 with a fixed seed: deterministic keys across reloads.
+  let s = 0x9e3779b9;
+  const rnd = () => {
+    s ^= s << 13; s >>>= 0;
+    s ^= s >>> 17;
+    s ^= s << 5;  s >>>= 0;
+    return s | 0;
+  };
+  const hi = new Int32Array(768);
+  const lo = new Int32Array(768);
+  for (let i = 0; i < 768; i++) { hi[i] = rnd(); lo[i] = rnd(); }
+  return { hi, lo, turnHi: rnd(), turnLo: rnd() };
+})();
+
+const ZOB_PIECE = { p: 0, n: 1, b: 2, r: 3, q: 4, k: 5 };
+
+// Key slot for a piece on a square index (0 = a1 .. 63 = h8).
+const zobKey = (piece, color, sqIdx) =>
+  ((ZOB_PIECE[piece] * 2 + (color === "w" ? 0 : 1)) * 64) + sqIdx;
+
+const zobSquare = (sq) => (sq.charCodeAt(0) - 97) + 8 * (sq.charCodeAt(1) - 49);
+
+function zobToggle(h, piece, color, sqIdx) {
+  const k = zobKey(piece, color, sqIdx);
+  h.hi ^= ZOBRIST.hi[k];
+  h.lo ^= ZOBRIST.lo[k];
+}
+
+/** Hash a FEN piece-placement field (+ side to move) from scratch. */
+function zobFromPlacement(placement, whiteToMove) {
+  const h = { hi: 0, lo: 0 };
+  const ranks = placement.split("/");   // ranks[0] is rank 8
+  for (let r = 0; r < ranks.length; r++) {
+    let file = 0;
+    for (const ch of ranks[r]) {
+      if (ch >= "1" && ch <= "8") { file += +ch; continue; }
+      const lower = ch.toLowerCase();
+      if (!(lower in ZOB_PIECE)) { file++; continue; }
+      zobToggle(h, lower, ch === lower ? "b" : "w", file + 8 * (7 - r));
+      file++;
+    }
+  }
+  if (whiteToMove) { h.hi ^= ZOBRIST.turnHi; h.lo ^= ZOBRIST.turnLo; }
+  return h;
+}
+
+/** Fold a chess.js move object into a running hash. */
+function zobApplyMove(h, m) {
+  zobToggle(h, m.piece, m.color, zobSquare(m.from));
+  zobToggle(h, m.promotion || m.piece, m.color, zobSquare(m.to));
+
+  if (m.captured) {
+    // En passant: the captured pawn sits on the destination file, origin rank.
+    const capSq = m.flags.includes("e")
+      ? (m.to.charCodeAt(0) - 97) + 8 * (m.from.charCodeAt(1) - 49)
+      : zobSquare(m.to);
+    zobToggle(h, m.captured, m.color === "w" ? "b" : "w", capSq);
+  }
+
+  const kside = m.flags.includes("k");
+  if (kside || m.flags.includes("q")) {
+    const rank = m.color === "w" ? 0 : 7;
+    zobToggle(h, "r", m.color, (kside ? 7 : 0) + 8 * rank);   // h1/a1 (h8/a8)
+    zobToggle(h, "r", m.color, (kside ? 5 : 3) + 8 * rank);   // f1/d1 (f8/d8)
+  }
+
+  h.hi ^= ZOBRIST.turnHi;
+  h.lo ^= ZOBRIST.turnLo;
+}
+
+const ZOB_START = zobFromPlacement("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR", true);
+
+/**
+ * Squares in the target position that must have received a pawn move.
+ * Pawns never retreat, so a pawn standing anywhere but its home rank
+ * got there via a pawn move (push or capture) landing on that square.
+ */
+function requiredPawnDests(placement) {
+  const dests = [];
+  const ranks = placement.split("/");
+  for (let r = 0; r < ranks.length; r++) {
+    let file = 0;
+    for (const ch of ranks[r]) {
+      if (ch >= "1" && ch <= "8") { file += +ch; continue; }
+      const rank = 8 - r;
+      if ((ch === "P" && rank !== 2) || (ch === "p" && rank !== 7)) {
+        dests.push(String.fromCharCode(97 + file) + rank);
+      }
+      file++;
+    }
+  }
+  return dests;
+}
+
+/**
+ * Destination square of a SAN pawn move ("e4", "exd5", "e8=Q"), else null.
+ * Deliberately permissive: a false positive only costs a wasted replay.
+ */
+function pawnMoveDest(token) {
+  if (token.charCodeAt(0) < 97) return null;   // uppercase piece letter or O-O
+  const t = token.replace(/[+#!?]+$/, "").replace(/=?[qrbnQRBN]$/, "");
+  if (t.length < 2) return null;
+  const f = t.charCodeAt(t.length - 2);
+  const r = t.charCodeAt(t.length - 1);
+  if (f < 97 || f > 104 || r < 49 || r > 56) return null;
+  return t.slice(-2);
+}
+
+/** Cheap necessary condition: skip games that can't hold the target pawns. */
+function hasRequiredPawnDests(tokens, dests) {
+  if (dests.length === 0) return true;
+  const seen = new Set();
+  for (const token of tokens) {
+    const d = pawnMoveDest(token);
+    if (d) seen.add(d);
+  }
+  return dests.every(d => seen.has(d));
+}
+
+/** Precompute everything the per-game filter needs from the target FEN. */
+function makeFilterTarget(fenPrefix) {
+  const [placement, turn] = fenPrefix.split(" ");
+  const h = zobFromPlacement(placement, turn === "w");
+  return { fen: fenPrefix, hi: h.hi, lo: h.lo, pawnDests: requiredPawnDests(placement) };
+}
+
+function gameContainsPosition(pgn, target, centerPly = 10) {
   const startPly = centerPly;
   const endPly = centerPly + 10;
   const movetext = pgn
@@ -264,15 +394,26 @@ function gameContainsPosition(pgn, fenPrefix, centerPly = 10) {
     .replace(/\{[^}]*\}/g, "")
     .replace(/\([^()]*\)/g, "").replace(/\([^()]*\)/g, "")
     .replace(/\$\d+/g, "");
+  const tokens = movetext.split(/\s+/);
+
+  if (!hasRequiredPawnDests(tokens, target.pawnDests)) return false;
+
   const chess = new Chess();
+  const h = { hi: ZOB_START.hi, lo: ZOB_START.lo };
+  // Hash match is confirmed against the FEN, so a collision can't produce a hit.
+  const atTarget = () =>
+    h.hi === target.hi && h.lo === target.lo &&
+    chess.fen().split(" ").slice(0, 2).join(" ") === target.fen;
+
   let ply = 0;
-  for (const token of movetext.split(/\s+/)) {
+  for (const token of tokens) {
     if (ply > endPly) break;
     if (!token || /^\d+\.+/.test(token) || token === "1-0" || token === "0-1" || token === "1/2-1/2" || token === "*") continue;
-    if (ply >= startPly && chess.fen().split(" ").slice(0, 2).join(" ") === fenPrefix) return true;
-    if (chess.move(token, { sloppy: true })) ply++;
+    if (ply >= startPly && atTarget()) return true;
+    const m = chess.move(token, { sloppy: true });
+    if (m) { zobApplyMove(h, m); ply++; }
   }
-  return ply >= startPly && chess.fen().split(" ").slice(0, 2).join(" ") === fenPrefix;
+  return ply >= startPly && atTarget();
 }
 
 async function analyzeGames(pgnText, options, onProgress, abortCtrl, sfWorker, onStatus) {
@@ -296,6 +437,7 @@ async function analyzeGames(pgnText, options, onProgress, abortCtrl, sfWorker, o
   });
 
   if (filterFen) {
+    const filterTarget = makeFilterTarget(filterFen);
     const filtered = [];
     const scanStart = performance.now();
     let lastYield = performance.now();
@@ -313,7 +455,7 @@ async function analyzeGames(pgnText, options, onProgress, abortCtrl, sfWorker, o
         eta = remaining < 60 ? ` ~${remaining}s left` : ` ~${Math.ceil(remaining / 60)} min left`;
       }
       onStatus?.("Filtering by opening... " + i + "/" + eligibleGames.length + eta, pct);
-      if (gameContainsPosition(eligibleGames[i], filterFen, filterCenterPly)) filtered.push(eligibleGames[i]);
+      if (gameContainsPosition(eligibleGames[i], filterTarget, filterCenterPly)) filtered.push(eligibleGames[i]);
     }
     eligibleGames = filtered;
   }
