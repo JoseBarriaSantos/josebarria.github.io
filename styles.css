@@ -571,9 +571,6 @@ a { color: inherit; text-decoration: none; }
 /* When Motion is active, hide the pieces it will animate in.
    These rules only apply while <html> has the `.anim` class, which the
    animation module removes on failure/reduced-motion → content shows normally. */
-.anim .hero__title,
-.anim .hero__lead,
-.anim .hero__cta,
 .anim .section__title,
 .anim .section__text,
 .anim .about__image,
@@ -846,6 +843,22 @@ a { color: inherit; text-decoration: none; }
   align-items: center;
   flex-wrap: wrap;
   margin-top: 30px;
+}
+
+/* Hero text fades in straight away (CSS, so it doesn't wait on the Motion CDN) */
+.hero__title,
+.hero__lead,
+.hero__cta{
+  animation: hero-fade-in 7200ms ease-out both;
+}
+@keyframes hero-fade-in{
+  from{ opacity: 0; }
+  to{ opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce){
+  .hero__title,
+  .hero__lead,
+  .hero__cta{ animation: none; }
 }
 
 /* Ping dot (port of Tailwind animate-ping) */

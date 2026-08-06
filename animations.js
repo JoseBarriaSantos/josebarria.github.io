@@ -59,9 +59,7 @@ if (reduceMotion) {
         );
       };
 
-      // Hero — replays when you scroll back to the top.
-      const hero = document.querySelector(".hero");
-      if (hero) bindReveal(hero, ".hero__title, .hero__lead, .hero__cta");
+      // Hero text is handled by CSS so it fades in without waiting on this module.
 
       // Content sections.
       document.querySelectorAll("main .section").forEach((section) => {
