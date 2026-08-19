@@ -12,6 +12,30 @@ const io = new IntersectionObserver(
 
 revealEls.forEach((el) => io.observe(el));
 
+// ----- Career timeline: reveal the earlier years -----
+const careerMore = document.getElementById("career-more");
+
+if (careerMore) {
+  const early = document.querySelectorAll(".milestone--early");
+  const label = careerMore.querySelector(".career-more__label");
+
+  // Number the year + entries in document order so the CSS cascade animation
+  // staggers across the whole revealed block, not per milestone.
+  let cascadeIndex = 0;
+  early.forEach((milestone) => {
+    milestone.querySelectorAll(".milestone__left, .entry").forEach((el) => {
+      el.style.setProperty("--cascade-i", cascadeIndex++);
+    });
+  });
+
+  careerMore.addEventListener("click", () => {
+    const open = careerMore.getAttribute("aria-expanded") !== "true";
+    early.forEach((el) => el.classList.toggle("milestone--shown", open));
+    careerMore.setAttribute("aria-expanded", String(open));
+    label.textContent = open ? "Show less" : "Show earlier";
+  });
+}
+
 // ----- Year in footer -----
 document.getElementById("year").textContent = new Date().getFullYear();
 

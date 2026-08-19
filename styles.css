@@ -9,6 +9,22 @@
   --stroke: rgba(255,255,255,0.08);
   --card: rgba(255,255,255,0.05);
   --card2: rgba(255,255,255,0.02);
+
+  /* Career tracks: gold = chess, cyan = work & projects, violet = academic */
+  --track-chess: #f5b12e;
+  --track-chess-soft: rgba(245,177,46,0.10);
+  --track-chess-line: rgba(245,177,46,0.45);
+  --track-chess-glow: rgba(245,177,46,0.30);
+
+  --track-work: #00e5ff;
+  --track-work-soft: rgba(0,229,255,0.10);
+  --track-work-line: rgba(0,229,255,0.45);
+  --track-work-glow: rgba(0,229,255,0.30);
+
+  --track-academic: #b47cff;
+  --track-academic-soft: rgba(180,124,255,0.10);
+  --track-academic-line: rgba(180,124,255,0.45);
+  --track-academic-glow: rgba(180,124,255,0.30);
 }
 
 * { box-sizing: border-box; }
@@ -657,20 +673,198 @@ a { color: inherit; text-decoration: none; }
   gap: 8px;
 }
 
-.milestone__title{
-  margin: 0 0 2px;   /* was 6px in the starter */
-}
-
-.milestone__meta{
-  margin: 0;         /* was 0 0 10px */
-}
-
+/* 0 rather than the old -6px: the entry's own 10px padding now provides the
+   same offset the <ul> default margin used to. */
 .milestone__card{
-  margin-top: -6px;   /* try -6px to -14px */
+  margin-top: 0;
 }
 
-.milestone__card li{
-  margin-bottom: 14px;       /* 👈 THIS controls spacing */
+.milestone__list{
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+/* ---------- Career entry (track-coloured) ---------- */
+/* Each entry inherits its palette from data-track, so every colour below
+   is expressed through --track* and needs no per-track duplication. */
+.entry[data-track="chess"]{
+  --track: var(--track-chess);
+  --track-soft: var(--track-chess-soft);
+  --track-line: var(--track-chess-line);
+  --track-glow: var(--track-chess-glow);
+}
+.entry[data-track="academic"]{
+  --track: var(--track-academic);
+  --track-soft: var(--track-academic-soft);
+  --track-line: var(--track-academic-line);
+  --track-glow: var(--track-academic-glow);
+}
+.entry[data-track="work"]{
+  --track: var(--track-work);
+  --track-soft: var(--track-work-soft);
+  --track-line: var(--track-work-line);
+  --track-glow: var(--track-work-glow);
+}
+
+.entry{
+  display: grid;
+  grid-template-columns: 26px 1fr;
+  gap: 12px;
+  padding: 10px 14px 11px 12px;
+  border-radius: 10px;
+  transition: background 260ms ease, box-shadow 260ms ease;
+}
+
+.entry:hover{
+  background: var(--track-soft);
+  box-shadow: 0 6px 22px rgba(0,0,0,0.20);
+}
+
+.entry__glyph{
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  margin-top: 2px;
+  border-radius: 7px;
+  font-size: 15px;
+  line-height: 1;
+  color: var(--track);
+  background: var(--track-soft);
+  border: 1px solid var(--track-line);
+  transition: transform 260ms cubic-bezier(0.2,0.7,0.2,1), box-shadow 260ms ease;
+}
+
+.entry[data-track="work"] .entry__glyph{
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px;
+  letter-spacing: -1px;
+  text-indent: -1px;
+}
+
+.entry[data-track="academic"] .entry__glyph{
+  font-size: 14px;
+}
+
+.entry:hover .entry__glyph{
+  transform: scale(1.1);
+  box-shadow: 0 0 16px var(--track-glow);
+}
+
+.entry__title{
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.entry__medal{
+  font-size: 12px;
+  vertical-align: 1px;
+}
+
+.entry__place{
+  display: inline-block;
+  margin-top: 6px;
+  padding: 2px 9px;
+  border-radius: 999px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 11px;
+  letter-spacing: 0.02em;
+  color: var(--muted);
+  background: rgba(255,255,255,0.04);
+  border: 1px solid var(--stroke);
+  transition: border-color 260ms ease, color 260ms ease;
+}
+
+.entry:hover .entry__place{
+  border-color: var(--track-line);
+  color: var(--fg);
+}
+
+.entry__note{
+  margin: 0;
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: var(--muted);
+}
+
+/* On pointer devices the commentary stays collapsed until hover, so the
+   timeline reads as titles first. 0fr -> 1fr animates the real height. */
+@media (hover: hover) and (prefers-reduced-motion: no-preference){
+  .entry__note{
+    display: grid;
+    grid-template-rows: 0fr;
+    margin-top: 0;
+    opacity: 0;
+    transition: grid-template-rows 300ms cubic-bezier(0.2,0.7,0.2,1),
+                opacity 200ms ease,
+                margin-top 300ms cubic-bezier(0.2,0.7,0.2,1);
+  }
+  .entry__note > span{
+    overflow: hidden;
+    min-height: 0;
+  }
+  .entry:hover .entry__note{
+    grid-template-rows: 1fr;
+    margin-top: 7px;
+    opacity: 1;
+  }
+}
+
+/* ---------- "Show earlier" toggle ---------- */
+.milestone--early{ display: none; }
+.milestone--early.milestone--shown{ display: grid; }
+
+/* Cascading reveal. The year and each entry are animated rather than the
+   .milestone itself, which Motion already owns via its scroll reveal.
+   --cascade-i is stamped on in script.js so the stagger runs continuously
+   across both revealed years instead of restarting per year. */
+@keyframes career-cascade{
+  from{ opacity: 0; transform: translateY(14px); }
+  to  { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: no-preference){
+  .milestone--early.milestone--shown .milestone__left,
+  .milestone--early.milestone--shown .entry{
+    animation: career-cascade 460ms cubic-bezier(0.2,0.7,0.2,1) both;
+    animation-delay: calc(var(--cascade-i, 0) * 70ms);
+  }
+}
+
+.career-more{
+  margin-top: 18px;
+  padding: 9px 18px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font: inherit;
+  font-size: 13px;
+  color: var(--muted);
+  background: transparent;
+  border: 1px solid var(--stroke);
+  border-radius: 999px;
+  cursor: pointer;
+  transition: color 220ms ease, border-color 220ms ease, background 220ms ease;
+}
+
+.career-more:hover{
+  color: var(--fg);
+  border-color: rgba(0,229,255,0.35);
+  background: rgba(0,229,255,0.05);
+}
+
+.career-more__chev{
+  font-size: 10px;
+  transition: transform 260ms cubic-bezier(0.2,0.7,0.2,1);
+}
+
+.career-more[aria-expanded="true"] .career-more__chev{
+  transform: rotate(180deg);
 }
 
 /* responsive: stack to 1 column on small screens */
@@ -1017,10 +1211,6 @@ a { color: inherit; text-decoration: none; }
   transform-origin: center;
   transition: transform 280ms cubic-bezier(0.2,0.7,0.2,1), background 280ms ease, box-shadow 280ms ease;
 }
-.milestone__card{
-  border-radius: 12px;
-  transition: transform 280ms cubic-bezier(0.2,0.7,0.2,1), background 280ms ease, box-shadow 280ms ease;
-}
 .milestone__date{
   transition: color 220ms ease, text-shadow 220ms ease;
 }
@@ -1029,15 +1219,12 @@ a { color: inherit; text-decoration: none; }
   background: var(--neon);
   box-shadow: 0 0 0 6px rgba(0,229,255,0.12), 0 0 26px rgba(0,229,255,0.55);
 }
-.milestone:hover .milestone__card{
-  transform: translateX(6px);
-  background: rgba(0,229,255,0.05);
-  box-shadow: 0 0 0 1px rgba(0,229,255,0.28), 0 10px 34px rgba(0,229,255,0.12);
-}
 .milestone:hover .milestone__date{
   color: var(--neon);
   text-shadow: 0 0 12px rgba(0,229,255,0.5);
 }
+/* The card no longer glows cyan on hover: each entry carries its own
+   track colour, and a cyan wash over the whole year would fight it. */
 
 /* Turn off the always-on ambient animations for reduced-motion users */
 @media (prefers-reduced-motion: reduce){
