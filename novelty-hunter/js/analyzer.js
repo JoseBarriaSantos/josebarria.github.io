@@ -549,6 +549,7 @@ async function analyzeGames(pgnText, options, onProgress, abortCtrl, sfWorker, o
           eval_after: sfResult.cpAfter,
           eval_later: sfResult.cpLater,
           novelty_ply: noveltyPly,
+          novelty_fen: fen,
           game_pgn: pgn,
           moves: history,
         };

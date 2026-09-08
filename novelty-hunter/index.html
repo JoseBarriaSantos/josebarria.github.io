@@ -293,9 +293,15 @@
         </div>
 
         <div class="sidebar">
-          <div class="info-field">
-            <span class="info-label">Event</span>
-            <span id="info-event" class="info-value"></span>
+          <div class="info-field info-field--event">
+            <div>
+              <span class="info-label">Event</span>
+              <span id="info-event" class="info-value"></span>
+            </div>
+            <div id="nov-dup-warn" class="nov-dup-warn" hidden>
+              <span class="nov-dup-icon">⚠</span>
+              <span id="nov-dup-text"></span>
+            </div>
           </div>
           <div class="info-field">
             <span class="info-label">White</span>
@@ -329,7 +335,10 @@
               <span id="info-games-before" class="info-value"></span>
             </div>
             <div class="info-field">
-              <span class="info-label">Master Games After</span>
+              <span class="info-label">Master Games After
+                <span id="games-after-warn" class="tooltip-anchor"
+                  data-tooltip="Woah, there were a lot of games reached before this move and we found 0 after.&#10;&#10;That might be because we can only retrieve&#10;the 12 most popular moves in a position.&#10;Sorry about that!" hidden>?</span>
+              </span>
               <span id="info-games-after" class="info-value"></span>
             </div>
           </div>

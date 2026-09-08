@@ -555,8 +555,35 @@
     }
   });
 
+  // Reorder so identical novelties (same position + move) sit together, best first
+  function groupNovelties() {
+    const groups = new Map();
+    for (const r of results) {
+      const key = (r.novelty_fen || r.novelty_ply) + "|" + r.move;
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push(r);
+    }
+    results = [].concat(...groups.values());
+
+    let offset = 0;
+    for (const g of groups.values()) {
+      const side = g[0].white_to_move ? "white" : "black";
+      let pts = 0;
+      for (const r of g) {
+        if (r.result === "1/2-1/2") pts += 0.5;
+        else if ((r.result === "1-0") === (side === "white")) pts += 1;
+      }
+      const info = g.length > 1
+        ? { start: offset + 1, end: offset + g.length, score: Math.round((pts / g.length) * 100), side }
+        : null;
+      for (const r of g) r.group_info = info;
+      offset += g.length;
+    }
+  }
+
   // ── Viewer ───────────────────────────────────────────────────
   function initViewer() {
+    groupNovelties();
     showState(viewerSec);
 
     // Create Chessground instance (only once)
@@ -630,10 +657,23 @@
     $("#info-frequency").textContent = (r.frequency * 100).toFixed(0) + "%";
     $("#info-games-before").textContent = r.games_before ?? "N/A";
     $("#info-games-after").textContent = r.games_after ?? "Not in DB";
+    const gaWarn = document.getElementById("games-after-warn");
+    // Lichess only returns the 12 most popular moves, so "0 after" can be a false negative
+    if (gaWarn) gaWarn.hidden = !(r.games_before > 10000 && !r.games_after);
     $("#info-rarity-score").textContent = r.rarity_score.toFixed(2);
     $("#info-efficiency-score").textContent = r.efficiency_score.toFixed(2);
     $("#info-early-nov-score").textContent = r.early_nov_score.toFixed(2);
     $("#info-interest-score").textContent = r.interest_score.toFixed(2);
+    const dupWarn = document.getElementById("nov-dup-warn");
+    if (dupWarn) {
+      const g = r.group_info;
+      dupWarn.hidden = !g;
+      if (g) {
+        $("#nov-dup-text").textContent =
+          `This novelty was found in games ${g.start}-${g.end} scoring ${g.score}% for ${g.side}.`;
+      }
+    }
+
     const sfWarn = document.getElementById("sf-pending-warn");
     if (sfWarn) sfWarn.hidden = !(sfRunning && r.sf_pending);
 
@@ -722,7 +762,7 @@
     const tag = document.activeElement.tagName;
     if (tag === "INPUT" || tag === "TEXTAREA") return;
 
-    const filterOpen = document.getElementById("acc-opening")?.classList.contains("open");
+    const filterOpen = document.querySelector('[data-target="acc-opening"]')?.classList.contains("open");
     if (filterOpen && uploadSec.classList.contains("active")) {
       if (e.key === "ArrowLeft")  { e.preventDefault(); filterGoTo(filterPly - 1); }
       if (e.key === "ArrowRight") { e.preventDefault(); filterGoTo(filterPly + 1); }
@@ -847,12 +887,22 @@
   // ── Tooltip portal ────────────────────────────────────────────
   document.querySelectorAll(".tooltip-anchor").forEach(anchor => {
     let tip = null;
+    let hideTimer = null;
+
+    const hide = () => { tip?.remove(); tip = null; };
+    // Grace period so the cursor can travel from the anchor into the tooltip
+    const scheduleHide = () => { clearTimeout(hideTimer); hideTimer = setTimeout(hide, 200); };
+    const cancelHide = () => clearTimeout(hideTimer);
+
     anchor.addEventListener("mouseenter", () => {
+      cancelHide();
       const text = anchor.getAttribute("data-tooltip");
-      if (!text) return;
+      if (!text || tip) return;
       tip = document.createElement("div");
       tip.className = "tooltip-portal";
       tip.textContent = text;
+      tip.addEventListener("mouseenter", cancelHide);
+      tip.addEventListener("mouseleave", scheduleHide);
       document.body.appendChild(tip);
       const r = anchor.getBoundingClientRect();
       const tr = tip.getBoundingClientRect();
@@ -863,7 +913,7 @@
       tip.style.top = top + "px";
       tip.style.left = left + "px";
     });
-    anchor.addEventListener("mouseleave", () => { tip?.remove(); tip = null; });
+    anchor.addEventListener("mouseleave", scheduleHide);
   });
 
 })();
